@@ -38,7 +38,8 @@ public final class Constants {
 
     // Secondary colors
     public static final Color SECONDARY_COLOR = new Color(44, 62, 80);      // Dark gray-blue
-    public static final Color ACCENT_COLOR = new Color(46, 204, 113);       // Green for success
+    public static final Color ACCENT_COLOR = new Color(46, 204, 113);       // Green accent
+    public static final Color SUCCESS_COLOR = new Color(39, 174, 96);       // Green for success
     public static final Color WARNING_COLOR = new Color(241, 196, 15);      // Yellow for warnings
     public static final Color DANGER_COLOR = new Color(231, 76, 60);        // Red for errors
 

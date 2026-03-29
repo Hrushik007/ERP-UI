@@ -8,6 +8,7 @@ import com.erp.view.components.Sidebar;
 import com.erp.view.panels.BasePanel;
 import com.erp.view.panels.DashboardPanel;
 import com.erp.view.panels.PlaceholderPanel;
+import com.erp.view.panels.hr.HRPanel;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -266,7 +267,7 @@ public class MainFrame extends JFrame {
             case "accounting":
                 return new PlaceholderPanel(Constants.MODULE_ACCOUNTING);
             case "hr":
-                return new PlaceholderPanel(Constants.MODULE_HR);
+                return new HRPanel();
             case "project":
                 return new PlaceholderPanel(Constants.MODULE_PROJECT);
             case "reporting":
