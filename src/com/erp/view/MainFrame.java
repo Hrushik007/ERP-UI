@@ -9,6 +9,7 @@ import com.erp.view.panels.BasePanel;
 import com.erp.view.panels.DashboardPanel;
 import com.erp.view.panels.PlaceholderPanel;
 import com.erp.view.panels.hr.HRPanel;
+import com.erp.view.panels.sales.SalesPanel;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -214,12 +215,23 @@ public class MainFrame extends JFrame {
      * @param command The module command (e.g., "dashboard", "hr", "crm")
      */
     private void showPanel(String command) {
+        // Redirect order to sales (both use the same panel)
+        if ("order".equals(command)) {
+            command = "sales";
+        }
+
         // Check if panel is already created
         if (!panelCache.containsKey(command)) {
             // Create and cache the panel
-            BasePanel panel = createPanelForCommand(command);
-            panelCache.put(command, panel);
-            contentPanel.add(panel, command);
+            try {
+                BasePanel panel = createPanelForCommand(command);
+                panelCache.put(command, panel);
+                contentPanel.add(panel, command);
+            } catch (Exception e) {
+                System.err.println("Error creating panel for: " + command);
+                e.printStackTrace();
+                return;
+            }
         }
 
         // Get the panel and update header
@@ -255,9 +267,7 @@ public class MainFrame extends JFrame {
             case "crm":
                 return new PlaceholderPanel(Constants.MODULE_CRM);
             case "sales":
-                return new PlaceholderPanel(Constants.MODULE_SALES);
-            case "order":
-                return new PlaceholderPanel(Constants.MODULE_ORDER);
+                return new SalesPanel();
             case "inventory":
                 return new PlaceholderPanel(Constants.MODULE_INVENTORY);
             case "manufacturing":
@@ -306,5 +316,24 @@ public class MainFrame extends JFrame {
             // Close this frame
             this.dispose();
         }
+    }
+
+    /**
+     * Main entry point for the application.
+     */
+    public static void main(String[] args) {
+        // Set look and feel to system default
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            // Fall back to default look and feel
+        }
+
+        // Run on Event Dispatch Thread (EDT) - required for Swing
+        SwingUtilities.invokeLater(() -> {
+            // Show the main frame
+            MainFrame mainFrame = new MainFrame();
+            mainFrame.setVisible(true);
+        });
     }
 }

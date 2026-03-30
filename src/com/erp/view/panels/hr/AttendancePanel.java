@@ -112,11 +112,7 @@ public class AttendancePanel extends JPanel {
             }
         };
         attendanceTable = new JTable(tableModel);
-        attendanceTable.setFont(Constants.FONT_REGULAR);
-        attendanceTable.setRowHeight(28);
-        attendanceTable.getTableHeader().setFont(Constants.FONT_REGULAR);
-        attendanceTable.getTableHeader().setBackground(Constants.PRIMARY_COLOR);
-        attendanceTable.getTableHeader().setForeground(Constants.TEXT_LIGHT);
+        UIHelper.styleTable(attendanceTable);
 
         // Summary labels
         totalLabel = createSummaryLabel("0");

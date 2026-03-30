@@ -77,14 +77,9 @@ public class EmployeePanel extends JPanel {
 
         // Create table
         employeeTable = new JTable(tableModel);
-        employeeTable.setFont(Constants.FONT_REGULAR);
-        employeeTable.setRowHeight(30);
         employeeTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        employeeTable.getTableHeader().setFont(Constants.FONT_REGULAR);
-        employeeTable.getTableHeader().setBackground(Constants.PRIMARY_COLOR);
-        employeeTable.getTableHeader().setForeground(Constants.TEXT_LIGHT);
-        employeeTable.setGridColor(new Color(230, 230, 230));
-        employeeTable.setShowGrid(true);
+        UIHelper.styleTable(employeeTable);
+        employeeTable.setRowHeight(30);
 
         // Set column widths
         employeeTable.getColumnModel().getColumn(0).setPreferredWidth(50);  // ID
@@ -155,10 +150,11 @@ public class EmployeePanel extends JPanel {
 
     private void layoutComponents() {
         // Top toolbar
-        JPanel toolbar = new JPanel(new BorderLayout(Constants.PADDING_MEDIUM, 0));
+        JPanel toolbar = new JPanel(new BorderLayout(0, Constants.PADDING_SMALL));
         toolbar.setOpaque(false);
+        toolbar.setBorder(new EmptyBorder(0, 0, Constants.PADDING_SMALL, 0));
 
-        // Left side - search and filter
+        // Top row - search and filter
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, Constants.PADDING_SMALL, 0));
         searchPanel.setOpaque(false);
 
@@ -170,16 +166,19 @@ public class EmployeePanel extends JPanel {
         searchPanel.add(new JLabel("Department:"));
         searchPanel.add(departmentFilter);
 
-        // Right side - action buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, Constants.PADDING_SMALL, 0));
+        // Bottom row - action buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, Constants.PADDING_SMALL, 0));
         buttonPanel.setOpaque(false);
-        buttonPanel.add(refreshButton);
+        buttonPanel.add(new JLabel("Actions:"));
+        buttonPanel.add(Box.createHorizontalStrut(5));
+        buttonPanel.add(addButton);
         buttonPanel.add(editButton);
         buttonPanel.add(deleteButton);
-        buttonPanel.add(addButton);
+        buttonPanel.add(Box.createHorizontalStrut(Constants.PADDING_MEDIUM));
+        buttonPanel.add(refreshButton);
 
-        toolbar.add(searchPanel, BorderLayout.WEST);
-        toolbar.add(buttonPanel, BorderLayout.EAST);
+        toolbar.add(searchPanel, BorderLayout.NORTH);
+        toolbar.add(buttonPanel, BorderLayout.SOUTH);
 
         // Table in scroll pane
         JScrollPane scrollPane = new JScrollPane(employeeTable);

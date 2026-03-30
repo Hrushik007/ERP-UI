@@ -23,6 +23,7 @@ public class Order {
     private LocalDateTime orderDate;
     private LocalDateTime requiredDate;
     private LocalDateTime shippedDate;
+    private LocalDateTime deliveredDate;
     private String status; // PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED
     private String shippingMethod;
     private String shippingAddress;
@@ -99,6 +100,9 @@ public class Order {
 
     public LocalDateTime getShippedDate() { return shippedDate; }
     public void setShippedDate(LocalDateTime shippedDate) { this.shippedDate = shippedDate; }
+
+    public LocalDateTime getDeliveredDate() { return deliveredDate; }
+    public void setDeliveredDate(LocalDateTime deliveredDate) { this.deliveredDate = deliveredDate; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

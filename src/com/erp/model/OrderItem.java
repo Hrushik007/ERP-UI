@@ -42,6 +42,10 @@ public class OrderItem {
 
     // Calculate line total
     public void calculateLineTotal() {
+        if (unitPrice == null) {
+            this.lineTotal = BigDecimal.ZERO;
+            return;
+        }
         BigDecimal gross = unitPrice.multiply(BigDecimal.valueOf(quantity));
         if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
             this.lineTotal = gross.subtract(discountAmount);

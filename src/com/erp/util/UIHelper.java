@@ -189,4 +189,37 @@ public final class UIHelper {
                 JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
         return result == JOptionPane.YES_OPTION;
     }
+
+    /**
+     * Styles a JTable with consistent header colors.
+     * Uses a custom renderer to ensure header text is visible.
+     * @param table The table to style
+     */
+    public static void styleTable(JTable table) {
+        table.setFont(Constants.FONT_REGULAR);
+        table.setRowHeight(28);
+        table.setGridColor(new Color(230, 230, 230));
+        table.setShowGrid(true);
+        table.getTableHeader().setFont(Constants.FONT_REGULAR);
+        table.getTableHeader().setReorderingAllowed(false);
+
+        // Custom header renderer for proper colors
+        table.getTableHeader().setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                    boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = new JLabel(value != null ? value.toString() : "");
+                label.setFont(Constants.FONT_REGULAR);
+                label.setForeground(Constants.TEXT_LIGHT);
+                label.setBackground(Constants.PRIMARY_COLOR);
+                label.setOpaque(true);
+                label.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 0, 1, 1, new Color(30, 100, 150)),
+                    new EmptyBorder(8, 8, 8, 8)
+                ));
+                label.setHorizontalAlignment(SwingConstants.LEFT);
+                return label;
+            }
+        });
+    }
 }

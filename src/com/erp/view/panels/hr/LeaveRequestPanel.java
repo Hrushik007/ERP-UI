@@ -100,11 +100,7 @@ public class LeaveRequestPanel extends JPanel {
             }
         };
         leaveTable = new JTable(tableModel);
-        leaveTable.setFont(Constants.FONT_REGULAR);
-        leaveTable.setRowHeight(28);
-        leaveTable.getTableHeader().setFont(Constants.FONT_REGULAR);
-        leaveTable.getTableHeader().setBackground(Constants.PRIMARY_COLOR);
-        leaveTable.getTableHeader().setForeground(Constants.TEXT_LIGHT);
+        UIHelper.styleTable(leaveTable);
         leaveTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         // Custom renderer for status column
@@ -183,8 +179,9 @@ public class LeaveRequestPanel extends JPanel {
 
     private void layoutComponents() {
         // Top - filters and actions
-        JPanel topPanel = new JPanel(new BorderLayout());
+        JPanel topPanel = new JPanel(new BorderLayout(0, Constants.PADDING_SMALL));
         topPanel.setOpaque(false);
+        topPanel.setBorder(new EmptyBorder(0, 0, Constants.PADDING_SMALL, 0));
 
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, Constants.PADDING_SMALL, 0));
         filterPanel.setOpaque(false);
@@ -194,14 +191,16 @@ public class LeaveRequestPanel extends JPanel {
         filterPanel.add(new JLabel("Employee:"));
         filterPanel.add(employeeFilter);
 
-        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, Constants.PADDING_SMALL, 0));
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, Constants.PADDING_SMALL, 0));
         actionPanel.setOpaque(false);
-        actionPanel.add(rejectButton);
-        actionPanel.add(approveButton);
+        actionPanel.add(new JLabel("Actions:"));
+        actionPanel.add(Box.createHorizontalStrut(5));
         actionPanel.add(newRequestButton);
+        actionPanel.add(approveButton);
+        actionPanel.add(rejectButton);
 
-        topPanel.add(filterPanel, BorderLayout.WEST);
-        topPanel.add(actionPanel, BorderLayout.EAST);
+        topPanel.add(filterPanel, BorderLayout.NORTH);
+        topPanel.add(actionPanel, BorderLayout.SOUTH);
 
         // Center - table
         JScrollPane scrollPane = new JScrollPane(leaveTable);

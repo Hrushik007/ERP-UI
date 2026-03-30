@@ -65,7 +65,6 @@ public class Sidebar extends JPanel {
         // Core business modules
         addMenuItem(Constants.MODULE_CRM, "crm");
         addMenuItem(Constants.MODULE_SALES, "sales");
-        addMenuItem(Constants.MODULE_ORDER, "order");
         addMenuItem(Constants.MODULE_INVENTORY, "inventory");
         addMenuItem(Constants.MODULE_MANUFACTURING, "manufacturing");
 
