@@ -8,6 +8,7 @@ import com.erp.view.components.Sidebar;
 import com.erp.view.panels.BasePanel;
 import com.erp.view.panels.DashboardPanel;
 import com.erp.view.panels.PlaceholderPanel;
+import com.erp.view.panels.crm.CRMPanel;
 import com.erp.view.panels.hr.HRPanel;
 import com.erp.view.panels.inventory.InventoryPanel;
 import com.erp.view.panels.sales.SalesPanel;
@@ -266,7 +267,7 @@ public class MainFrame extends JFrame {
             // All other modules use PlaceholderPanel for now
             // As we implement them in future batches, we'll add cases here
             case "crm":
-                return new PlaceholderPanel(Constants.MODULE_CRM);
+                return new CRMPanel();
             case "sales":
                 return new SalesPanel();
             case "inventory":

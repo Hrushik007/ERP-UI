@@ -1,8 +1,8 @@
 package com.erp.service.interfaces;
 
-import com.erp.model.Customer;
-import com.erp.model.SupportTicket;
+import com.erp.model.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -195,4 +195,322 @@ public interface CRMService {
      * @return Average hours to resolve
      */
     double getAverageResolutionTime(LocalDate startDate, LocalDate endDate);
+
+
+    // ==================== LEAD MANAGEMENT ====================
+
+    /**
+     * Get all leads.
+     * @return List of all leads
+     */
+    List<Lead> getAllLeads();
+
+    /**
+     * Get leads by status (NEW, CONTACTED, QUALIFIED, UNQUALIFIED, CONVERTED).
+     * @param status The lead status
+     * @return List of leads with that status
+     */
+    List<Lead> getLeadsByStatus(String status);
+
+    /**
+     * Get a lead by ID.
+     * @param leadId The lead ID
+     * @return Lead object or null if not found
+     */
+    Lead getLeadById(int leadId);
+
+    /**
+     * Search leads by company name, contact name, or email.
+     * @param searchTerm The search string
+     * @return List of matching leads
+     */
+    List<Lead> searchLeads(String searchTerm);
+
+    /**
+     * Get leads assigned to a sales rep.
+     * @param salesRepId The sales rep's employee ID
+     * @return List of assigned leads
+     */
+    List<Lead> getLeadsBySalesRep(int salesRepId);
+
+    /**
+     * Create a new lead.
+     * @param lead The lead data
+     * @return Created lead with ID
+     */
+    Lead createLead(Lead lead);
+
+    /**
+     * Update an existing lead.
+     * @param lead The lead to update
+     * @return true if successful
+     */
+    boolean updateLead(Lead lead);
+
+    /**
+     * Delete a lead.
+     * @param leadId The lead ID
+     * @return true if successful
+     */
+    boolean deleteLead(int leadId);
+
+    /**
+     * Assign a lead to a sales rep.
+     * @param leadId The lead ID
+     * @param salesRepId The sales rep's employee ID
+     * @return true if successful
+     */
+    boolean assignLead(int leadId, int salesRepId);
+
+    /**
+     * Convert a lead to opportunity and contact.
+     * @param leadId The lead ID
+     * @return The created opportunity, or null if conversion failed
+     */
+    Opportunity convertLead(int leadId);
+
+
+    // ==================== OPPORTUNITY MANAGEMENT ====================
+
+    /**
+     * Get all opportunities.
+     * @return List of all opportunities
+     */
+    List<Opportunity> getAllOpportunities();
+
+    /**
+     * Get opportunities by stage.
+     * @param stage The opportunity stage
+     * @return List of opportunities at that stage
+     */
+    List<Opportunity> getOpportunitiesByStage(String stage);
+
+    /**
+     * Get an opportunity by ID.
+     * @param opportunityId The opportunity ID
+     * @return Opportunity object or null if not found
+     */
+    Opportunity getOpportunityById(int opportunityId);
+
+    /**
+     * Get opportunities assigned to a sales rep.
+     * @param salesRepId The sales rep's employee ID
+     * @return List of assigned opportunities
+     */
+    List<Opportunity> getOpportunitiesBySalesRep(int salesRepId);
+
+    /**
+     * Get opportunities for a customer.
+     * @param customerId The customer ID
+     * @return List of opportunities
+     */
+    List<Opportunity> getOpportunitiesByCustomer(int customerId);
+
+    /**
+     * Create a new opportunity.
+     * @param opportunity The opportunity data
+     * @return Created opportunity with ID
+     */
+    Opportunity createOpportunity(Opportunity opportunity);
+
+    /**
+     * Update an existing opportunity.
+     * @param opportunity The opportunity to update
+     * @return true if successful
+     */
+    boolean updateOpportunity(Opportunity opportunity);
+
+    /**
+     * Delete an opportunity.
+     * @param opportunityId The opportunity ID
+     * @return true if successful
+     */
+    boolean deleteOpportunity(int opportunityId);
+
+    /**
+     * Move opportunity to next stage.
+     * @param opportunityId The opportunity ID
+     * @return true if successful
+     */
+    boolean advanceOpportunityStage(int opportunityId);
+
+    /**
+     * Close opportunity as won.
+     * @param opportunityId The opportunity ID
+     * @param actualValue The actual closed value
+     * @return true if successful
+     */
+    boolean closeOpportunityWon(int opportunityId, BigDecimal actualValue);
+
+    /**
+     * Close opportunity as lost.
+     * @param opportunityId The opportunity ID
+     * @param lostReason The reason for losing
+     * @return true if successful
+     */
+    boolean closeOpportunityLost(int opportunityId, String lostReason);
+
+
+    // ==================== CONTACT MANAGEMENT ====================
+
+    /**
+     * Get all contacts.
+     * @return List of all contacts
+     */
+    List<Contact> getAllContacts();
+
+    /**
+     * Get a contact by ID.
+     * @param contactId The contact ID
+     * @return Contact object or null if not found
+     */
+    Contact getContactById(int contactId);
+
+    /**
+     * Get contacts for a customer.
+     * @param customerId The customer ID
+     * @return List of contacts
+     */
+    List<Contact> getContactsByCustomer(int customerId);
+
+    /**
+     * Search contacts by name or email.
+     * @param searchTerm The search string
+     * @return List of matching contacts
+     */
+    List<Contact> searchContacts(String searchTerm);
+
+    /**
+     * Create a new contact.
+     * @param contact The contact data
+     * @return Created contact with ID
+     */
+    Contact createContact(Contact contact);
+
+    /**
+     * Update an existing contact.
+     * @param contact The contact to update
+     * @return true if successful
+     */
+    boolean updateContact(Contact contact);
+
+    /**
+     * Delete a contact.
+     * @param contactId The contact ID
+     * @return true if successful
+     */
+    boolean deleteContact(int contactId);
+
+
+    // ==================== ACTIVITY MANAGEMENT ====================
+
+    /**
+     * Get all activities.
+     * @return List of all activities
+     */
+    List<Activity> getAllActivities();
+
+    /**
+     * Get an activity by ID.
+     * @param activityId The activity ID
+     * @return Activity object or null if not found
+     */
+    Activity getActivityById(int activityId);
+
+    /**
+     * Get activities by type (CALL, MEETING, EMAIL, TASK, NOTE).
+     * @param type The activity type
+     * @return List of activities of that type
+     */
+    List<Activity> getActivitiesByType(String type);
+
+    /**
+     * Get activities for a related entity (lead, contact, opportunity, customer).
+     * @param relatedType The entity type (LEAD, CONTACT, OPPORTUNITY, CUSTOMER)
+     * @param relatedId The entity ID
+     * @return List of activities
+     */
+    List<Activity> getActivitiesByRelated(String relatedType, int relatedId);
+
+    /**
+     * Get activities assigned to an employee.
+     * @param employeeId The employee ID
+     * @return List of assigned activities
+     */
+    List<Activity> getActivitiesByAssignee(int employeeId);
+
+    /**
+     * Get overdue activities.
+     * @return List of overdue activities
+     */
+    List<Activity> getOverdueActivities();
+
+    /**
+     * Get upcoming activities (due within X days).
+     * @param days Number of days
+     * @return List of upcoming activities
+     */
+    List<Activity> getUpcomingActivities(int days);
+
+    /**
+     * Create a new activity.
+     * @param activity The activity data
+     * @return Created activity with ID
+     */
+    Activity createActivity(Activity activity);
+
+    /**
+     * Update an existing activity.
+     * @param activity The activity to update
+     * @return true if successful
+     */
+    boolean updateActivity(Activity activity);
+
+    /**
+     * Delete an activity.
+     * @param activityId The activity ID
+     * @return true if successful
+     */
+    boolean deleteActivity(int activityId);
+
+    /**
+     * Mark an activity as completed.
+     * @param activityId The activity ID
+     * @param outcome The outcome/result of the activity
+     * @return true if successful
+     */
+    boolean completeActivity(int activityId, String outcome);
+
+
+    // ==================== EXTENDED ANALYTICS ====================
+
+    /**
+     * Get lead count by status.
+     * @return Map of status to count
+     */
+    Map<String, Integer> getLeadCountByStatus();
+
+    /**
+     * Get opportunity count by stage.
+     * @return Map of stage to count
+     */
+    Map<String, Integer> getOpportunityCountByStage();
+
+    /**
+     * Get total pipeline value (sum of all open opportunities).
+     * @return Total pipeline value
+     */
+    BigDecimal getTotalPipelineValue();
+
+    /**
+     * Get pipeline value by stage.
+     * @return Map of stage to total value
+     */
+    Map<String, BigDecimal> getPipelineValueByStage();
+
+    /**
+     * Get activity count by type.
+     * @return Map of type to count
+     */
+    Map<String, Integer> getActivityCountByType();
 }
