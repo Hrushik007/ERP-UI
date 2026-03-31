@@ -141,6 +141,7 @@ public class EmployeePanel extends JPanel {
         deleteButton.setForeground(Constants.DANGER_COLOR);
         deleteButton.setBackground(Constants.BG_WHITE);
         deleteButton.setBorder(BorderFactory.createLineBorder(Constants.DANGER_COLOR, 1));
+        deleteButton.setPreferredSize(new Dimension(120, 40));
         deleteButton.setEnabled(false);
         deleteButton.addActionListener(e -> deleteSelectedEmployee());
 
