@@ -123,6 +123,79 @@ public class WorkOrder {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
+    // Convenience methods for compatibility
+    public String getProductName() {
+        return product != null ? product.getName() : null;
+    }
+
+    public void setProductName(String productName) {
+        // No-op setter for compatibility
+    }
+
+    public String getProductSku() {
+        return product != null ? product.getSku() : null;
+    }
+
+    public void setProductSku(String productSku) {
+        // No-op setter for compatibility
+    }
+
+    public int getAssignedTo() { return supervisorId; }
+    public void setAssignedTo(int assignedTo) { this.supervisorId = assignedTo; }
+
+    public String getAssignedToName() {
+        return "Supervisor"; // Placeholder
+    }
+
+    public void setAssignedToName(String assignedToName) {
+        // No-op setter for compatibility
+    }
+
+    public LocalDate getScheduledStartDate() { return plannedStartDate; }
+    public void setScheduledStartDate(LocalDate scheduledStartDate) { this.plannedStartDate = scheduledStartDate; }
+
+    public LocalDate getScheduledEndDate() { return plannedEndDate; }
+    public void setScheduledEndDate(LocalDate scheduledEndDate) { this.plannedEndDate = scheduledEndDate; }
+
+    public int getQuantity() { return quantityOrdered; }
+    public void setQuantity(int quantity) { this.quantityOrdered = quantity; }
+
+    public String getProductionLine() {
+        return "Line " + workCenterId;
+    }
+
+    public void setProductionLine(String productionLine) {
+        // No-op setter for compatibility
+    }
+
+    // Helper methods
+    public boolean isCompleted() {
+        return "COMPLETED".equals(status);
+    }
+
+    public boolean isInProgress() {
+        return "IN_PROGRESS".equals(status);
+    }
+
+    public boolean canStart() {
+        return "PLANNED".equals(status) || "RELEASED".equals(status);
+    }
+
+    public void start() {
+        if (canStart()) {
+            this.status = "IN_PROGRESS";
+            this.actualStartDate = LocalDate.now();
+            this.updatedAt = LocalDateTime.now();
+        }
+    }
+
+    public void complete() {
+        this.status = "COMPLETED";
+        this.actualEndDate = LocalDate.now();
+        this.quantityCompleted = this.quantityOrdered;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     @Override
     public String toString() {
         return "WorkOrder{" + workOrderNumber + ", product=" + productId + ", status=" + status + "}";
