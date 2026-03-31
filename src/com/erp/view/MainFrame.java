@@ -9,6 +9,7 @@ import com.erp.view.panels.BasePanel;
 import com.erp.view.panels.DashboardPanel;
 import com.erp.view.panels.PlaceholderPanel;
 import com.erp.view.panels.crm.CRMPanel;
+import com.erp.view.panels.finance.FinancePanel;
 import com.erp.view.panels.hr.HRPanel;
 import com.erp.view.panels.inventory.InventoryPanel;
 import com.erp.view.panels.manufacturing.ManufacturingPanel;
@@ -276,7 +277,7 @@ public class MainFrame extends JFrame {
             case "manufacturing":
                 return new ManufacturingPanel();
             case "finance":
-                return new PlaceholderPanel(Constants.MODULE_FINANCE);
+                return new FinancePanel();
             case "accounting":
                 return new PlaceholderPanel(Constants.MODULE_ACCOUNTING);
             case "hr":

@@ -1,7 +1,6 @@
 package com.erp.service.interfaces;
 
-import com.erp.model.Invoice;
-import com.erp.model.Payment;
+import com.erp.model.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -180,4 +179,181 @@ public interface FinanceService {
      * @return Map of customer ID to revenue
      */
     Map<Integer, BigDecimal> getTopCustomersByRevenue(int limit, LocalDate startDate, LocalDate endDate);
+
+
+    // ==================== ACCOUNTS MANAGEMENT ====================
+
+    /**
+     * Get all accounts.
+     * @return List of all accounts
+     */
+    List<Account> getAllAccounts();
+
+    /**
+     * Get active accounts.
+     * @return List of active accounts
+     */
+    List<Account> getActiveAccounts();
+
+    /**
+     * Get accounts by type.
+     * @param accountType BANK, CASH, CREDIT_CARD, SAVINGS, INVESTMENT
+     * @return List of accounts
+     */
+    List<Account> getAccountsByType(String accountType);
+
+    /**
+     * Get an account by ID.
+     * @param accountId The account ID
+     * @return Account object or null
+     */
+    Account getAccountById(int accountId);
+
+    /**
+     * Create a new account.
+     * @param account The account data
+     * @return Created account with ID
+     */
+    Account createAccount(Account account);
+
+    /**
+     * Update an account.
+     * @param account The account to update
+     * @return true if successful
+     */
+    boolean updateAccount(Account account);
+
+    /**
+     * Get total balance across all accounts.
+     * @return Total balance
+     */
+    BigDecimal getTotalBalance();
+
+
+    // ==================== TRANSACTIONS ====================
+
+    /**
+     * Get all transactions.
+     * @return List of all transactions
+     */
+    List<FinancialTransaction> getAllTransactions();
+
+    /**
+     * Get transactions by type.
+     * @param transactionType INCOME, EXPENSE, TRANSFER, REFUND
+     * @return List of transactions
+     */
+    List<FinancialTransaction> getTransactionsByType(String transactionType);
+
+    /**
+     * Get transactions by account.
+     * @param accountId The account ID
+     * @return List of transactions
+     */
+    List<FinancialTransaction> getTransactionsByAccount(int accountId);
+
+    /**
+     * Get transactions by date range.
+     * @param startDate Start date
+     * @param endDate End date
+     * @return List of transactions
+     */
+    List<FinancialTransaction> getTransactionsByDateRange(LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Get a transaction by ID.
+     * @param transactionId The transaction ID
+     * @return Transaction object or null
+     */
+    FinancialTransaction getTransactionById(int transactionId);
+
+    /**
+     * Create a new transaction.
+     * @param transaction The transaction data
+     * @return Created transaction with ID
+     */
+    FinancialTransaction createTransaction(FinancialTransaction transaction);
+
+    /**
+     * Get total income for a period.
+     * @param startDate Start date
+     * @param endDate End date
+     * @return Total income
+     */
+    BigDecimal getTotalIncome(LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Get total expenses for a period.
+     * @param startDate Start date
+     * @param endDate End date
+     * @return Total expenses
+     */
+    BigDecimal getTotalExpenses(LocalDate startDate, LocalDate endDate);
+
+
+    // ==================== BUDGETS ====================
+
+    /**
+     * Get all budgets.
+     * @return List of all budgets
+     */
+    List<Budget> getAllBudgets();
+
+    /**
+     * Get budgets by fiscal year.
+     * @param fiscalYear The fiscal year
+     * @return List of budgets
+     */
+    List<Budget> getBudgetsByYear(int fiscalYear);
+
+    /**
+     * Get budgets by category.
+     * @param category The budget category
+     * @return List of budgets
+     */
+    List<Budget> getBudgetsByCategory(String category);
+
+    /**
+     * Get a budget by ID.
+     * @param budgetId The budget ID
+     * @return Budget object or null
+     */
+    Budget getBudgetById(int budgetId);
+
+    /**
+     * Create a new budget.
+     * @param budget The budget data
+     * @return Created budget with ID
+     */
+    Budget createBudget(Budget budget);
+
+    /**
+     * Update a budget.
+     * @param budget The budget to update
+     * @return true if successful
+     */
+    boolean updateBudget(Budget budget);
+
+    /**
+     * Approve a budget.
+     * @param budgetId The budget ID
+     * @param approvedBy The approver's employee ID
+     * @return true if successful
+     */
+    boolean approveBudget(int budgetId, int approvedBy);
+
+    /**
+     * Update actual amount for a budget.
+     * @param budgetId The budget ID
+     * @param actualAmount The actual amount
+     * @return true if successful
+     */
+    boolean updateBudgetActual(int budgetId, BigDecimal actualAmount);
+
+    /**
+     * Get budget summary (total budgeted vs actual).
+     * @param fiscalYear The fiscal year
+     * @return Map with keys: totalBudgeted, totalActual, totalVariance
+     */
+    Map<String, BigDecimal> getBudgetSummary(int fiscalYear);
 }
