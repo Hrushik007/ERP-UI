@@ -1,5 +1,6 @@
 package com.erp.service.interfaces;
 
+import com.erp.model.Milestone;
 import com.erp.model.Project;
 import com.erp.model.ProjectTask;
 
@@ -244,4 +245,62 @@ public interface ProjectService {
      * @return Hours allocated vs capacity
      */
     Map<String, Integer> getEmployeeUtilization(int employeeId, LocalDate startDate, LocalDate endDate);
+
+
+    // ==================== MILESTONE MANAGEMENT ====================
+
+    /**
+     * Get all milestones.
+     * @return List of all milestones
+     */
+    List<Milestone> getAllMilestones();
+
+    /**
+     * Get milestones for a project.
+     * @param projectId The project ID
+     * @return List of milestones
+     */
+    List<Milestone> getMilestonesByProject(int projectId);
+
+    /**
+     * Get upcoming milestones within specified days.
+     * @param days Number of days to look ahead
+     * @return List of upcoming milestones
+     */
+    List<Milestone> getUpcomingMilestones(int days);
+
+    /**
+     * Get milestone by ID.
+     * @param milestoneId The milestone ID
+     * @return Milestone or null
+     */
+    Milestone getMilestoneById(int milestoneId);
+
+    /**
+     * Create a new milestone.
+     * @param milestone The milestone data
+     * @return Created milestone with ID
+     */
+    Milestone createMilestone(Milestone milestone);
+
+    /**
+     * Update a milestone.
+     * @param milestone The milestone to update
+     * @return true if successful
+     */
+    boolean updateMilestone(Milestone milestone);
+
+    /**
+     * Delete a milestone.
+     * @param milestoneId The milestone ID
+     * @return true if successful
+     */
+    boolean deleteMilestone(int milestoneId);
+
+    /**
+     * Mark milestone as completed.
+     * @param milestoneId The milestone ID
+     * @return true if successful
+     */
+    boolean completeMilestone(int milestoneId);
 }

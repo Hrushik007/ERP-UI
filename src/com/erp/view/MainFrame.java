@@ -14,6 +14,7 @@ import com.erp.view.panels.finance.FinancePanel;
 import com.erp.view.panels.hr.HRPanel;
 import com.erp.view.panels.inventory.InventoryPanel;
 import com.erp.view.panels.manufacturing.ManufacturingPanel;
+import com.erp.view.panels.project.ProjectPanel;
 import com.erp.view.panels.sales.SalesPanel;
 
 import javax.swing.*;
@@ -284,7 +285,7 @@ public class MainFrame extends JFrame {
             case "hr":
                 return new HRPanel();
             case "project":
-                return new PlaceholderPanel(Constants.MODULE_PROJECT);
+                return new ProjectPanel();
             case "reporting":
                 return new PlaceholderPanel(Constants.MODULE_REPORTING);
             case "analytics":
