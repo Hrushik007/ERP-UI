@@ -1,5 +1,9 @@
 package com.erp.service.interfaces;
 
+import com.erp.model.ChartConfig;
+import com.erp.model.Dashboard;
+import com.erp.model.KPI;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -7,11 +11,56 @@ import java.util.Map;
 /**
  * AnalyticsService Interface - CONTRACT for Data Analytics & BI Module Backend Team
  *
- * Covers: Descriptive Analytics, Predictive Analytics, Data Integration, Dashboards
+ * Covers: Descriptive Analytics, Predictive Analytics, Data Integration, Dashboards,
+ *         KPI Management, Chart Configuration
  *
  * This service provides analytical insights beyond basic reporting.
  */
 public interface AnalyticsService {
+
+    // ==================== DASHBOARD MANAGEMENT ====================
+
+    List<Dashboard> getAllDashboards();
+    List<Dashboard> getDashboardsByCategory(String category);
+    List<Dashboard> getPublicDashboards();
+    Dashboard getDashboardById(int dashboardId);
+    Dashboard getDashboardByCode(String dashboardCode);
+    Dashboard createDashboard(Dashboard dashboard);
+    boolean updateDashboard(Dashboard dashboard);
+    boolean deleteDashboard(int dashboardId);
+    boolean setDefaultDashboard(int dashboardId);
+
+    // ==================== KPI MANAGEMENT ====================
+
+    List<KPI> getAllKPIs();
+    List<KPI> getKPIsByCategory(String category);
+    List<KPI> getActiveKPIs();
+    KPI getKPIById(int kpiId);
+    KPI getKPIByCode(String kpiCode);
+    KPI createKPI(KPI kpi);
+    boolean updateKPI(KPI kpi);
+    boolean deleteKPI(int kpiId);
+    boolean refreshKPI(int kpiId);
+    boolean refreshAllKPIs();
+
+    // ==================== CHART CONFIGURATION ====================
+
+    List<ChartConfig> getAllCharts();
+    List<ChartConfig> getChartsByCategory(String category);
+    List<ChartConfig> getChartsByType(String chartType);
+    ChartConfig getChartById(int chartId);
+    ChartConfig getChartByCode(String chartCode);
+    ChartConfig createChart(ChartConfig chart);
+    boolean updateChart(ChartConfig chart);
+    boolean deleteChart(int chartId);
+
+    // ==================== STATISTICS ====================
+
+    int getTotalDashboards();
+    int getTotalKPIs();
+    int getTotalCharts();
+    int getKPIsOnTarget();
+    int getKPIsBelowTarget();
 
     // ==================== DESCRIPTIVE ANALYTICS ====================
 
