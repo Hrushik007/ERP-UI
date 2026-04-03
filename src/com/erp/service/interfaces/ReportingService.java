@@ -1,5 +1,9 @@
 package com.erp.service.interfaces;
 
+import com.erp.model.Report;
+import com.erp.model.ReportTemplate;
+import com.erp.model.ScheduledReport;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -7,12 +11,64 @@ import java.util.Map;
 /**
  * ReportingService Interface - CONTRACT for Reporting Module Backend Team
  *
- * Covers: Standard Reports, Custom Reports, Dashboards, Compliance Reporting
+ * Covers: Standard Reports, Custom Reports, Dashboards, Compliance Reporting,
+ *         Report Management, Templates, and Scheduled Reports
  *
  * Reports return data as Maps and Lists for flexible UI rendering.
  * Each report method returns data that can be displayed in tables, charts, etc.
  */
 public interface ReportingService {
+
+    // ==================== REPORT MANAGEMENT ====================
+
+    List<Report> getAllReports();
+    List<Report> getReportsByCategory(String category);
+    List<Report> getActiveReports();
+    Report getReportById(int reportId);
+    Report getReportByCode(String reportCode);
+    Report createReport(Report report);
+    boolean updateReport(Report report);
+    boolean deleteReport(int reportId);
+    boolean activateReport(int reportId);
+    boolean deactivateReport(int reportId);
+    void recordReportRun(int reportId);
+
+    // ==================== REPORT TEMPLATES ====================
+
+    List<ReportTemplate> getAllTemplates();
+    List<ReportTemplate> getTemplatesByCategory(String category);
+    List<ReportTemplate> getActiveTemplates();
+    ReportTemplate getTemplateById(int templateId);
+    ReportTemplate getTemplateByCode(String templateCode);
+    ReportTemplate createTemplate(ReportTemplate template);
+    boolean updateTemplate(ReportTemplate template);
+    boolean deleteTemplate(int templateId);
+
+    // ==================== SCHEDULED REPORTS ====================
+
+    List<ScheduledReport> getAllScheduledReports();
+    List<ScheduledReport> getScheduledReportsByReportId(int reportId);
+    List<ScheduledReport> getActiveScheduledReports();
+    List<ScheduledReport> getPendingScheduledReports();
+    ScheduledReport getScheduledReportById(int scheduleId);
+    ScheduledReport createScheduledReport(ScheduledReport scheduledReport);
+    boolean updateScheduledReport(ScheduledReport scheduledReport);
+    boolean deleteScheduledReport(int scheduleId);
+    boolean activateScheduledReport(int scheduleId);
+    boolean deactivateScheduledReport(int scheduleId);
+    boolean runScheduledReportNow(int scheduleId);
+
+    // ==================== REPORT EXECUTION ====================
+
+    String executeReport(int reportId, String parameters);
+    String exportReport(int reportId, String outputFormat);
+
+    // ==================== STATISTICS ====================
+
+    int getTotalReportsCount();
+    int getTotalTemplatesCount();
+    int getTotalScheduledCount();
+    int getActiveScheduledCount();
 
     // ==================== SALES REPORTS ====================
 
