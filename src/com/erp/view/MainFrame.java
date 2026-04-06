@@ -17,6 +17,7 @@ import com.erp.view.panels.inventory.InventoryPanel;
 import com.erp.view.panels.manufacturing.ManufacturingPanel;
 import com.erp.view.panels.project.ProjectPanel;
 import com.erp.view.panels.automation.AutomationPanel;
+import com.erp.view.panels.bi.BIPanel;
 import com.erp.view.panels.integration.IntegrationPanel;
 import com.erp.view.panels.marketing.MarketingPanel;
 import com.erp.view.panels.reporting.ReportingPanel;
@@ -296,7 +297,7 @@ public class MainFrame extends JFrame {
             case "analytics":
                 return new AnalyticsPanel();
             case "bi":
-                return new PlaceholderPanel(Constants.MODULE_BI);
+                return new BIPanel();
             case "marketing":
                 return new MarketingPanel();
             case "automation":

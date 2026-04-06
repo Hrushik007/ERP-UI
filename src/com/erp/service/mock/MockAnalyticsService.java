@@ -436,57 +436,196 @@ public class MockAnalyticsService implements AnalyticsService {
 
     @Override
     public List<Map<String, Object>> getSalesForecast(int daysAhead) {
-        return new ArrayList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
+        double baseValue = 12000 + Math.random() * 3000;
+        LocalDate today = LocalDate.now();
+        for (int i = 1; i <= daysAhead; i++) {
+            Map<String, Object> point = new HashMap<>();
+            point.put("date", today.plusDays(i));
+            // Simulate a slight upward trend with noise
+            double value = baseValue + (i * 50) + (Math.random() - 0.4) * 800;
+            point.put("value", Math.round(value * 100.0) / 100.0);
+            point.put("confidence", i <= 7 ? "HIGH" : i <= 14 ? "MEDIUM" : "LOW");
+            result.add(point);
+        }
+        return result;
     }
 
     @Override
     public List<Map<String, Object>> getDemandForecast(int productId, int daysAhead) {
-        return new ArrayList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
+        double baseUnits = 50 + Math.random() * 100;
+        LocalDate today = LocalDate.now();
+        for (int i = 1; i <= daysAhead; i++) {
+            Map<String, Object> point = new HashMap<>();
+            point.put("date", today.plusDays(i));
+            point.put("productId", productId);
+            point.put("units", (int)(baseUnits + (Math.random() - 0.3) * 30));
+            result.add(point);
+        }
+        return result;
     }
 
     @Override
     public List<Map<String, Object>> getChurnRiskAnalysis() {
-        return new ArrayList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
+        String[][] customers = {
+            {"1", "Acme Corporation", "12", "2024-01-15", "LOW"},
+            {"2", "TechStart Inc", "85", "2024-11-02", "HIGH"},
+            {"3", "Global Industries", "45", "2024-06-20", "MEDIUM"},
+            {"4", "Local Shop LLC", "72", "2024-09-10", "HIGH"},
+            {"5", "Enterprise Solutions", "20", "2024-03-05", "LOW"},
+            {"6", "Growth Corp", "55", "2024-08-18", "MEDIUM"},
+            {"7", "Startup Labs", "90", "2024-12-01", "HIGH"},
+            {"8", "Future Tech Co", "30", "2024-04-22", "LOW"}
+        };
+        for (String[] c : customers) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("customerId", Integer.parseInt(c[0]));
+            entry.put("customerName", c[1]);
+            entry.put("riskScore", Integer.parseInt(c[2]));
+            entry.put("lastPurchase", c[3]);
+            entry.put("riskLevel", c[4]);
+            entry.put("daysSinceContact", (int)(Math.random() * 90) + 5);
+            result.add(entry);
+        }
+        return result;
     }
 
     @Override
     public List<Map<String, Object>> getReorderRecommendations() {
-        return new ArrayList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
+        String[][] products = {
+            {"1", "Widget A", "15", "100", "85"},
+            {"2", "Gadget B", "8", "50", "42"},
+            {"3", "Component C", "22", "200", "178"},
+            {"4", "Part D", "3", "75", "72"},
+            {"5", "Module E", "45", "150", "105"}
+        };
+        for (String[] p : products) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("productId", Integer.parseInt(p[0]));
+            entry.put("productName", p[1]);
+            entry.put("currentStock", Integer.parseInt(p[2]));
+            entry.put("reorderQuantity", Integer.parseInt(p[3]));
+            entry.put("forecastDemand", Integer.parseInt(p[4]));
+            entry.put("urgency", Integer.parseInt(p[2]) < 10 ? "HIGH" : Integer.parseInt(p[2]) < 25 ? "MEDIUM" : "LOW");
+            result.add(entry);
+        }
+        return result;
     }
 
     @Override
     public List<Map<String, Object>> getCustomerSegments() {
-        return new ArrayList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
+        Object[][] segments = {
+            {"Premium", 45, 68.5, 4500.0, "High value, frequent buyers"},
+            {"Regular", 120, 42.0, 1200.0, "Consistent mid-range purchases"},
+            {"Occasional", 85, 15.0, 350.0, "Infrequent, low-value orders"},
+            {"New", 60, 8.5, 800.0, "Recently acquired, potential growth"},
+            {"At Risk", 30, 5.0, 200.0, "Declining engagement, needs attention"}
+        };
+        for (Object[] s : segments) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("segment", s[0]);
+            entry.put("customerCount", s[1]);
+            entry.put("revenueShare", s[2]);
+            entry.put("avgOrderValue", s[3]);
+            entry.put("description", s[4]);
+            result.add(entry);
+        }
+        return result;
     }
 
     @Override
     public Map<String, List<Integer>> getProductCategories() {
-        return new HashMap<>();
+        Map<String, List<Integer>> result = new HashMap<>();
+        result.put("Stars", Arrays.asList(1, 5, 8));
+        result.put("Cash Cows", Arrays.asList(2, 3, 6));
+        result.put("Question Marks", Arrays.asList(4, 9, 10));
+        result.put("Dogs", Arrays.asList(7, 11));
+        return result;
     }
 
     @Override
     public Map<String, Double> getStatisticalSummary(String metricName, LocalDate startDate, LocalDate endDate) {
-        return new HashMap<>();
+        Map<String, Double> result = new HashMap<>();
+        result.put("mean", 12500.0);
+        result.put("median", 11800.0);
+        result.put("stdDev", 2300.0);
+        result.put("min", 8500.0);
+        result.put("max", 18200.0);
+        result.put("q1", 10200.0);
+        result.put("q3", 14100.0);
+        result.put("count", 30.0);
+        return result;
     }
 
     @Override
     public Map<String, Object> getCorrelation(String metric1, String metric2, LocalDate startDate, LocalDate endDate) {
-        return new HashMap<>();
+        Map<String, Object> result = new HashMap<>();
+        result.put("metric1", metric1);
+        result.put("metric2", metric2);
+        result.put("coefficient", 0.78);
+        result.put("strength", "Strong Positive");
+        result.put("significance", "p < 0.01");
+        result.put("dataPoints", 30);
+        return result;
     }
 
     @Override
     public List<Map<String, Object>> detectAnomalies(String metricName, LocalDate startDate, LocalDate endDate) {
-        return new ArrayList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
+        Object[][] anomalies = {
+            {LocalDate.now().minusDays(15), 28500.0, 12500.0, "SPIKE", "Unusual spike — 128% above average"},
+            {LocalDate.now().minusDays(8), 3200.0, 12500.0, "DROP", "Significant drop — 74% below average"},
+            {LocalDate.now().minusDays(3), 22000.0, 12500.0, "SPIKE", "Elevated value — 76% above average"}
+        };
+        for (Object[] a : anomalies) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("date", a[0]);
+            entry.put("value", a[1]);
+            entry.put("expected", a[2]);
+            entry.put("type", a[3]);
+            entry.put("description", a[4]);
+            entry.put("metric", metricName);
+            result.add(entry);
+        }
+        return result;
     }
 
     @Override
     public Map<String, Object> getExecutiveScorecard() {
-        return new HashMap<>();
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalRevenue", 1250000.0);
+        result.put("revenueGrowth", 8.5);
+        result.put("totalOrders", 3420);
+        result.put("orderGrowth", 12.3);
+        result.put("newCustomers", 145);
+        result.put("customerGrowth", 5.2);
+        result.put("avgOrderValue", 365.50);
+        result.put("avgOrderGrowth", -2.1);
+        result.put("grossMargin", 34.5);
+        result.put("marginGrowth", 1.8);
+        result.put("employeeCount", 87);
+        result.put("employeeGrowth", 3.5);
+        result.put("customerSatisfaction", 87.0);
+        result.put("satisfactionGrowth", 2.0);
+        result.put("operationalEfficiency", 91.5);
+        result.put("efficiencyGrowth", 4.2);
+        return result;
     }
 
     @Override
     public Map<String, Object> getRealTimeMetrics() {
-        return new HashMap<>();
+        Map<String, Object> result = new HashMap<>();
+        result.put("ordersToday", (int)(Math.random() * 30) + 10);
+        result.put("revenueToday", Math.round((Math.random() * 15000 + 5000) * 100.0) / 100.0);
+        result.put("activeUsers", (int)(Math.random() * 20) + 5);
+        result.put("pendingOrders", (int)(Math.random() * 15) + 3);
+        result.put("openTickets", (int)(Math.random() * 10) + 2);
+        result.put("serverUptime", 99.97);
+        return result;
     }
 
     @Override
