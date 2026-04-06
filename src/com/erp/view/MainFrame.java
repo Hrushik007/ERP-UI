@@ -17,6 +17,7 @@ import com.erp.view.panels.inventory.InventoryPanel;
 import com.erp.view.panels.manufacturing.ManufacturingPanel;
 import com.erp.view.panels.project.ProjectPanel;
 import com.erp.view.panels.automation.AutomationPanel;
+import com.erp.view.panels.integration.IntegrationPanel;
 import com.erp.view.panels.marketing.MarketingPanel;
 import com.erp.view.panels.reporting.ReportingPanel;
 import com.erp.view.panels.sales.SalesPanel;
@@ -301,7 +302,7 @@ public class MainFrame extends JFrame {
             case "automation":
                 return new AutomationPanel();
             case "integration":
-                return new PlaceholderPanel(Constants.MODULE_INTEGRATION);
+                return new IntegrationPanel();
 
             default:
                 return new PlaceholderPanel("Unknown Module");
