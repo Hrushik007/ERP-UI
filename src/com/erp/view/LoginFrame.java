@@ -1,305 +1,341 @@
 package com.erp.view;
 
-import com.erp.service.AuthenticationService;
+import com.erp.exception.AuthException;
+import com.erp.exception.ERPException;
+import com.erp.exception.ExceptionHandler;
+import com.erp.exception.IntegrationException;
+import com.erp.integration.IUIService;
+import com.erp.integration.ServiceLocator;
+import com.erp.model.dto.UserSessionDTO;
+import com.erp.session.UserSession;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.ActionEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * LoginFrame is the entry point window for the application.
+ * Split-screen login frame.
  *
- * This demonstrates:
+ *  - Left:  credentials form (username, password, login button, status)
+ *           Lockout after 3 invalid attempts for 30 seconds.
+ *  - Right: clickable role cards (Admin, Manager, Employee, HR, Sales).
  *
- * 1. COMPOSITION with JFrame - LoginFrame HAS-A JFrame (extends it).
- *
- * 2. EVENT HANDLING - Uses ActionListener for button clicks and
- *    KeyAdapter for keyboard events (Enter key to submit).
- *
- * 3. DELEGATION - Delegates authentication to AuthenticationService.
- *    The UI doesn't know HOW authentication works - it just asks the service.
- *
- * 4. SEPARATION OF CONCERNS - UI logic here, business logic in service layer.
+ * Authentication flows through IUIService.sendData("auth/login", ...).
  */
 public class LoginFrame extends JFrame {
 
-    // Form components
+    private static final int MAX_ATTEMPTS = 3;
+    private static final int LOCKOUT_SECONDS = 30;
+
     private JTextField usernameField;
     private JPasswordField passwordField;
     private JButton loginButton;
-    private JLabel errorLabel;
+    private JLabel statusLabel;
+    private JLabel lockoutLabel;
+    private final List<RoleSelectable> roleCards = new ArrayList<>();
+    private RoleSelectable selectedRole;
 
-    // Reference to the service layer
-    private AuthenticationService authService;
+    private int failedAttempts = 0;
+    private Timer lockoutTimer;
+    private int lockoutRemaining;
 
-    /**
-     * Constructor sets up the login window.
-     */
+    private final IUIService ui = ServiceLocator.getUIService();
+
     public LoginFrame() {
-        // Get reference to authentication service (Singleton)
-        authService = AuthenticationService.getInstance();
-
-        // Configure the window
-        setupFrame();
-
-        // Create and layout components
-        initializeComponents();
-    }
-
-    /**
-     * Configures the JFrame properties.
-     */
-    private void setupFrame() {
         setTitle(Constants.APP_NAME + " - Login");
-        setSize(Constants.LOGIN_SIZE);
+        setSize(980, 580);
+        setMinimumSize(new Dimension(900, 540));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setResizable(false);
-
-        // Center on screen
         UIHelper.centerWindow(this);
+        setContentPane(buildSplit());
     }
 
-    /**
-     * Creates and arranges all UI components.
-     */
-    private void initializeComponents() {
-        // Main panel with padding
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBackground(Constants.BG_WHITE);
+    private JPanel buildSplit() {
+        JPanel root = new JPanel(new GridBagLayout());
+        root.setBackground(Constants.BG_LIGHT);
+        GridBagConstraints c = new GridBagConstraints();
+        c.fill = GridBagConstraints.BOTH;
+        c.weighty = 1;
 
-        // Header section
-        JPanel headerPanel = createHeaderPanel();
+        c.gridx = 0; c.weightx = 0.42;
+        root.add(buildLeftForm(), c);
 
-        // Form section
-        JPanel formPanel = createFormPanel();
-
-        // Footer section
-        JPanel footerPanel = createFooterPanel();
-
-        mainPanel.add(headerPanel, BorderLayout.NORTH);
-        mainPanel.add(formPanel, BorderLayout.CENTER);
-        mainPanel.add(footerPanel, BorderLayout.SOUTH);
-
-        setContentPane(mainPanel);
+        c.gridx = 1; c.weightx = 0.58;
+        root.add(buildRightRoles(), c);
+        return root;
     }
 
-    /**
-     * Creates the header panel with logo/branding.
-     */
-    private JPanel createHeaderPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(Constants.PRIMARY_COLOR);
-        panel.setBorder(new EmptyBorder(Constants.PADDING_XLARGE, Constants.PADDING_XLARGE,
-                                        Constants.PADDING_XLARGE, Constants.PADDING_XLARGE));
+    // -------------------- LEFT: credentials --------------------
 
-        // App name
-        JLabel titleLabel = new JLabel("ERP System");
-        titleLabel.setFont(Constants.FONT_TITLE);
-        titleLabel.setForeground(Constants.TEXT_LIGHT);
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+    private JPanel buildLeftForm() {
+        JPanel p = new JPanel();
+        p.setBackground(Constants.BG_WHITE);
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setBorder(new EmptyBorder(50, 50, 40, 50));
 
-        // Subtitle
-        JLabel subtitleLabel = new JLabel("Enterprise Resource Planning");
-        subtitleLabel.setFont(Constants.FONT_REGULAR);
-        subtitleLabel.setForeground(new Color(200, 220, 240));
-        subtitleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel brand = new JLabel("ERP System");
+        brand.setFont(new Font(Constants.FONT_FAMILY, Font.BOLD, 30));
+        brand.setForeground(Constants.PRIMARY_COLOR);
+        brand.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        panel.add(titleLabel);
-        panel.add(Box.createVerticalStrut(5));
-        panel.add(subtitleLabel);
+        JLabel tagline = new JLabel("Car Manufacturing Suite");
+        tagline.setFont(Constants.FONT_REGULAR);
+        tagline.setForeground(Constants.TEXT_SECONDARY);
+        tagline.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        return panel;
-    }
-
-    /**
-     * Creates the form panel with username/password fields.
-     */
-    private JPanel createFormPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBackground(Constants.BG_WHITE);
-        panel.setBorder(new EmptyBorder(Constants.PADDING_XLARGE, Constants.PADDING_XLARGE,
-                                        Constants.PADDING_MEDIUM, Constants.PADDING_XLARGE));
-
-        // Login title
-        JLabel loginTitle = new JLabel("Sign In");
-        loginTitle.setFont(Constants.FONT_SUBTITLE);
-        loginTitle.setForeground(Constants.TEXT_PRIMARY);
-        loginTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        // Username field
-        JLabel usernameLabel = UIHelper.createLabel("Username", Constants.FONT_REGULAR, Constants.TEXT_PRIMARY);
-        usernameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel signIn = new JLabel("Sign in to continue");
+        signIn.setFont(new Font(Constants.FONT_FAMILY, Font.BOLD, 20));
+        signIn.setForeground(Constants.TEXT_PRIMARY);
+        signIn.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         usernameField = UIHelper.createTextField(20);
-        usernameField.setMaximumSize(new Dimension(300, 40));
-
-        // Password field
-        JLabel passwordLabel = UIHelper.createLabel("Password", Constants.FONT_REGULAR, Constants.TEXT_PRIMARY);
-        passwordLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        usernameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        usernameField.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         passwordField = UIHelper.createPasswordField(20);
-        passwordField.setMaximumSize(new Dimension(300, 40));
+        passwordField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        passwordField.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Error label (initially hidden)
-        errorLabel = new JLabel(" ");
-        errorLabel.setFont(Constants.FONT_SMALL);
-        errorLabel.setForeground(Constants.DANGER_COLOR);
-        errorLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        // Login button
         loginButton = UIHelper.createPrimaryButton("Login");
-        loginButton.setMaximumSize(new Dimension(300, 45));
-        loginButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        loginButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+        loginButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+        loginButton.addActionListener(e -> attemptLogin());
 
-        // Add action listeners
-        setupEventListeners();
-
-        // Add components
-        panel.add(loginTitle);
-        panel.add(Box.createVerticalStrut(Constants.PADDING_LARGE));
-        panel.add(usernameLabel);
-        panel.add(Box.createVerticalStrut(Constants.PADDING_SMALL));
-        panel.add(usernameField);
-        panel.add(Box.createVerticalStrut(Constants.PADDING_MEDIUM));
-        panel.add(passwordLabel);
-        panel.add(Box.createVerticalStrut(Constants.PADDING_SMALL));
-        panel.add(passwordField);
-        panel.add(Box.createVerticalStrut(Constants.PADDING_MEDIUM));
-        panel.add(errorLabel);
-        panel.add(Box.createVerticalStrut(Constants.PADDING_MEDIUM));
-        panel.add(loginButton);
-
-        return panel;
-    }
-
-    /**
-     * Creates the footer panel with version info.
-     */
-    private JPanel createFooterPanel() {
-        JPanel panel = new JPanel();
-        panel.setBackground(Constants.BG_LIGHT);
-        panel.setBorder(new EmptyBorder(Constants.PADDING_MEDIUM, 0, Constants.PADDING_MEDIUM, 0));
-
-        JLabel versionLabel = new JLabel("Version " + Constants.APP_VERSION);
-        versionLabel.setFont(Constants.FONT_SMALL);
-        versionLabel.setForeground(Constants.TEXT_SECONDARY);
-
-        JLabel credentialsHint = new JLabel("Hint: admin/admin123, manager/manager123, employee/emp123");
-        credentialsHint.setFont(Constants.FONT_SMALL);
-        credentialsHint.setForeground(Constants.TEXT_SECONDARY);
-
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        versionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        credentialsHint.setAlignmentX(Component.CENTER_ALIGNMENT);
-        panel.add(credentialsHint);
-        panel.add(Box.createVerticalStrut(5));
-        panel.add(versionLabel);
-
-        return panel;
-    }
-
-    /**
-     * Sets up event listeners for form interaction.
-     *
-     * This demonstrates the Observer pattern through event listeners:
-     * - The button/field (subject) doesn't know what happens on click
-     * - The listener (observer) handles the event
-     */
-    private void setupEventListeners() {
-        // Login button click
-        loginButton.addActionListener(this::handleLogin);
-
-        // Enter key in password field triggers login
         passwordField.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    handleLogin(null);
-                }
+            @Override public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) attemptLogin();
             }
         });
-
-        // Enter key in username field moves to password
         usernameField.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    passwordField.requestFocus();
-                }
+            @Override public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) passwordField.requestFocus();
             }
         });
+
+        statusLabel = new JLabel(" ");
+        statusLabel.setFont(Constants.FONT_SMALL);
+        statusLabel.setForeground(Constants.DANGER_COLOR);
+        statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        lockoutLabel = new JLabel(" ");
+        lockoutLabel.setFont(Constants.FONT_SMALL);
+        lockoutLabel.setForeground(Constants.DANGER_COLOR);
+        lockoutLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel hint = new JLabel("<html><span style='color:#7F8C8D'>Credentials hint: admin/admin123, "
+                + "manager/manager123, employee/emp123, hr/hr123, sales/sales123</span></html>");
+        hint.setFont(Constants.FONT_SMALL);
+        hint.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        p.add(brand);
+        p.add(Box.createVerticalStrut(4));
+        p.add(tagline);
+        p.add(Box.createVerticalStrut(36));
+        p.add(signIn);
+        p.add(Box.createVerticalStrut(18));
+        p.add(label("Username"));
+        p.add(Box.createVerticalStrut(4));
+        p.add(usernameField);
+        p.add(Box.createVerticalStrut(14));
+        p.add(label("Password"));
+        p.add(Box.createVerticalStrut(4));
+        p.add(passwordField);
+        p.add(Box.createVerticalStrut(10));
+        p.add(statusLabel);
+        p.add(lockoutLabel);
+        p.add(Box.createVerticalStrut(12));
+        p.add(loginButton);
+        p.add(Box.createVerticalGlue());
+        p.add(hint);
+        return p;
     }
 
-    /**
-     * Handles the login action.
-     *
-     * This method:
-     * 1. Validates input
-     * 2. Delegates to AuthenticationService
-     * 3. Handles success/failure
-     *
-     * @param e The action event (can be null if called from key listener)
-     */
-    private void handleLogin(ActionEvent e) {
-        // Clear previous error
-        errorLabel.setText(" ");
+    private JLabel label(String t) {
+        JLabel l = new JLabel(t);
+        l.setFont(Constants.FONT_REGULAR);
+        l.setForeground(Constants.TEXT_PRIMARY);
+        l.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return l;
+    }
 
-        // Get input values
-        String username = usernameField.getText().trim();
-        String password = new String(passwordField.getPassword());
+    // -------------------- RIGHT: role cards --------------------
 
-        // Validate input
-        if (username.isEmpty()) {
-            showError("Please enter your username");
-            usernameField.requestFocus();
-            return;
+    private JPanel buildRightRoles() {
+        JPanel p = new JPanel();
+        p.setBackground(new Color(247, 250, 254));
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setBorder(new EmptyBorder(50, 40, 40, 50));
+
+        JLabel title = new JLabel("Choose your role");
+        title.setFont(new Font(Constants.FONT_FAMILY, Font.BOLD, 22));
+        title.setForeground(Constants.TEXT_PRIMARY);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel subtitle = new JLabel("Your selection shapes what modules you can access.");
+        subtitle.setFont(Constants.FONT_SMALL);
+        subtitle.setForeground(Constants.TEXT_SECONDARY);
+        subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        p.add(title);
+        p.add(Box.createVerticalStrut(4));
+        p.add(subtitle);
+        p.add(Box.createVerticalStrut(20));
+
+        String[][] roles = {
+                {UserSession.ROLE_ADMIN,    "admin",    "Full access across every module", "A"},
+                {UserSession.ROLE_MANAGER,  "manager",  "Approve orders, view reports",    "M"},
+                {UserSession.ROLE_EMPLOYEE, "employee", "Assembly-line & daily operations","E"},
+                {UserSession.ROLE_HR,       "hr",       "People, payroll, onboarding",     "H"},
+                {UserSession.ROLE_SALES,    "sales",    "Dealers, orders and customers",   "S"},
+        };
+
+        JPanel grid = new JPanel(new GridLayout(0, 2, 14, 14));
+        grid.setOpaque(false);
+        grid.setAlignmentX(Component.LEFT_ALIGNMENT);
+        for (String[] r : roles) {
+            RoleSelectable card = new RoleSelectable(r[0], r[1], r[2], r[3]);
+            roleCards.add(card);
+            grid.add(card);
         }
+        p.add(grid);
+        p.add(Box.createVerticalGlue());
 
-        if (password.isEmpty()) {
-            showError("Please enter your password");
-            passwordField.requestFocus();
-            return;
-        }
+        JLabel tip = new JLabel("<html><i style='color:#7F8C8D'>Tip: selecting a role pre-fills "
+                + "the username field. Click Login to continue.</i></html>");
+        tip.setFont(Constants.FONT_SMALL);
+        tip.setAlignmentX(Component.LEFT_ALIGNMENT);
+        p.add(tip);
+        return p;
+    }
 
-        // Attempt authentication - delegate to service
-        boolean success = authService.authenticate(username, password);
+    // -------------------- auth --------------------
 
-        if (success) {
-            // Login successful - open main application
-            openMainApplication();
+    private void attemptLogin() {
+        if (!loginButton.isEnabled()) return;
+        statusLabel.setText(" ");
+
+        String u = usernameField.getText().trim();
+        String pw = new String(passwordField.getPassword());
+        if (u.isEmpty()) { statusLabel.setText("Please enter your username."); return; }
+        if (pw.isEmpty()) { statusLabel.setText("Please enter your password."); return; }
+
+        setFormEnabled(false);
+        SwingWorker<UserSessionDTO, Void> worker = new SwingWorker<UserSessionDTO, Void>() {
+            @Override protected UserSessionDTO doInBackground() {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("username", u);
+                payload.put("password", pw);
+                payload.put("role", selectedRole != null ? selectedRole.role : null);
+                return ui.sendData(IUIService.AUTH_LOGIN, payload, UserSessionDTO.class);
+            }
+            @Override protected void done() {
+                try {
+                    UserSessionDTO dto = get();
+                    if (dto != null && dto.isValid()) {
+                        failedAttempts = 0;
+                        UserSession.getInstance().begin(dto.getUserId(), dto.getDisplayName(), dto.getRole());
+                        openMainFrame();
+                    } else {
+                        onInvalidCredentials();
+                    }
+                } catch (Exception ex) {
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    if (cause instanceof IntegrationException) {
+                        ExceptionHandler.handle(LoginFrame.this, (ERPException) cause, LoginFrame.this::attemptLogin);
+                    } else {
+                        statusLabel.setText("Unexpected error: " + cause.getMessage());
+                    }
+                } finally {
+                    setFormEnabled(lockoutTimer == null);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    private void onInvalidCredentials() {
+        failedAttempts++;
+        AuthException e = AuthException.invalidCredentials();
+        if (failedAttempts >= MAX_ATTEMPTS) {
+            startLockout();
         } else {
-            // Login failed - show error
-            showError("Invalid username or password");
-            passwordField.setText("");
+            statusLabel.setText(e.getMessage() + "  (attempt " + failedAttempts + "/" + MAX_ATTEMPTS + ")");
+        }
+        passwordField.setText("");
+        passwordField.requestFocus();
+    }
+
+    private void startLockout() {
+        lockoutRemaining = LOCKOUT_SECONDS;
+        statusLabel.setText("Too many failed attempts.");
+        updateLockoutLabel();
+        setFormEnabled(false);
+        lockoutTimer = new Timer(1000, e -> {
+            lockoutRemaining--;
+            if (lockoutRemaining <= 0) {
+                lockoutTimer.stop();
+                lockoutTimer = null;
+                failedAttempts = 0;
+                lockoutLabel.setText(" ");
+                statusLabel.setText(" ");
+                setFormEnabled(true);
+            } else {
+                updateLockoutLabel();
+            }
+        });
+        lockoutTimer.start();
+    }
+
+    private void updateLockoutLabel() {
+        lockoutLabel.setText("Account locked. Try again in " + lockoutRemaining + "s.");
+    }
+
+    private void setFormEnabled(boolean on) {
+        usernameField.setEnabled(on);
+        passwordField.setEnabled(on);
+        loginButton.setEnabled(on);
+        for (RoleSelectable c : roleCards) c.setEnabled(on);
+    }
+
+    private void openMainFrame() {
+        MainFrame mf = new MainFrame();
+        mf.setVisible(true);
+        dispose();
+    }
+
+    // -------------------- inner RoleCard wrapper --------------------
+
+    private class RoleSelectable extends com.erp.view.components.RoleCard {
+        private final String role;
+        RoleSelectable(String role, String username, String desc, String icon) {
+            super(role, username, desc, icon, null);
+            this.role = role;
+            // override handler in-place via MouseListener defined in parent; we reach via child listeners
+            for (java.awt.event.MouseListener ml : getMouseListeners()) removeMouseListener(ml);
+            addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override public void mouseClicked(java.awt.event.MouseEvent e) { select(); }
+                @Override public void mouseEntered(java.awt.event.MouseEvent e) {
+                    if (!isSelected()) setBackground(new Color(245, 249, 255));
+                }
+                @Override public void mouseExited(java.awt.event.MouseEvent e) {
+                    if (!isSelected()) setBackground(Constants.BG_WHITE);
+                }
+            });
+        }
+        private void select() {
+            for (RoleSelectable c : roleCards) c.setSelected(false);
+            setSelected(true);
+            selectedRole = this;
+            if (usernameField.getText().trim().isEmpty()) usernameField.setText(getDefaultUsername());
             passwordField.requestFocus();
         }
-    }
-
-    /**
-     * Shows an error message in the form.
-     *
-     * @param message The error message to display
-     */
-    private void showError(String message) {
-        errorLabel.setText(message);
-    }
-
-    /**
-     * Opens the main application window after successful login.
-     */
-    private void openMainApplication() {
-        // Create and show main frame
-        MainFrame mainFrame = new MainFrame();
-        mainFrame.setVisible(true);
-
-        // Close login window
-        this.dispose();
     }
 }

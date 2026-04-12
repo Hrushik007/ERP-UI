@@ -1,91 +1,84 @@
 package com.erp.view;
 
-import com.erp.model.User;
-import com.erp.service.AuthenticationService;
+import com.erp.exception.AuthException;
+import com.erp.exception.ExceptionHandler;
+import com.erp.session.UserSession;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
 import com.erp.view.components.Sidebar;
 import com.erp.view.panels.BasePanel;
-import com.erp.view.panels.DashboardPanel;
-import com.erp.view.panels.PlaceholderPanel;
-import com.erp.view.panels.accounting.AccountingPanel;
-import com.erp.view.panels.analytics.AnalyticsPanel;
-import com.erp.view.panels.crm.CRMPanel;
-import com.erp.view.panels.finance.FinancePanel;
-import com.erp.view.panels.hr.HRPanel;
-import com.erp.view.panels.inventory.InventoryPanel;
-import com.erp.view.panels.manufacturing.ManufacturingPanel;
-import com.erp.view.panels.project.ProjectPanel;
-import com.erp.view.panels.automation.AutomationPanel;
-import com.erp.view.panels.bi.BIPanel;
-import com.erp.view.panels.integration.IntegrationPanel;
-import com.erp.view.panels.marketing.MarketingPanel;
-import com.erp.view.panels.reporting.ReportingPanel;
-import com.erp.view.panels.sales.SalesPanel;
+import com.erp.view.panels.IntegratedDashboardPanel;
+import com.erp.view.panels.facade.AccountingFacadePanel;
+import com.erp.view.panels.facade.AnalyticsFacadePanel;
+import com.erp.view.panels.facade.AutomationFacadePanel;
+import com.erp.view.panels.facade.BIFacadePanel;
+import com.erp.view.panels.facade.CRMFacadePanel;
+import com.erp.view.panels.facade.FinanceFacadePanel;
+import com.erp.view.panels.facade.IntegrationFacadePanel;
+import com.erp.view.panels.facade.ManufacturingFacadePanel;
+import com.erp.view.panels.facade.MarketingFacadePanel;
+import com.erp.view.panels.facade.ProjectFacadePanel;
+import com.erp.view.panels.facade.ReportingFacadePanel;
+import com.erp.view.panels.facade.SalesFacadePanel;
+import com.erp.view.panels.facade.SupplyChainFacadePanel;
+import com.erp.view.panels.hr.HRHomePanel;
+import com.erp.view.panels.orders.OrdersHomePanel;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * MainFrame is the primary application window after login.
- *
- * This class demonstrates several important concepts:
- *
- * 1. COMPOSITION: MainFrame contains a Sidebar and multiple panels.
- *    "Favor composition over inheritance" is a key OOP principle.
- *
- * 2. MVC PATTERN: MainFrame acts as a View and Controller combination.
- *    - View: Displays the UI components
- *    - Controller: Handles navigation between panels
- *
- * 3. CARD LAYOUT: A powerful layout manager for switching between panels.
- *    Think of it like a deck of cards - only one card is visible at a time.
- *
- * 4. LAZY INITIALIZATION: Panels are created only when first accessed.
- *    This improves startup performance.
- *
- * 5. CACHING: Once created, panels are cached in a Map for reuse.
+ * Primary application shell. Hosts the sidebar + header + module area
+ * (CardLayout). Modules are created lazily by a Factory Method; access
+ * is gated by RBAC using the active {@link UserSession}.
  */
 public class MainFrame extends JFrame {
 
-    // Sidebar navigation component
     private Sidebar sidebar;
-
-    // Panel that holds the content (uses CardLayout)
     private JPanel contentPanel;
     private CardLayout cardLayout;
-
-    // Cache of created panels - avoids recreating panels every time
-    // Key: action command (e.g., "dashboard"), Value: the panel instance
-    private Map<String, BasePanel> panelCache;
-
-    // Top header bar component
+    private final Map<String, BasePanel> panelCache = new HashMap<>();
     private JPanel headerBar;
-
-    // Current module label in header
     private JLabel currentModuleLabel;
 
-    /**
-     * Constructor initializes the main application frame.
-     */
-    public MainFrame() {
-        panelCache = new HashMap<>();
+    // RBAC matrix: which roles may open which modules. Dashboard is available to all.
+    private static final Map<String, Set<String>> ACCESS = new HashMap<>();
+    static {
+        Set<String> all = new HashSet<>(Arrays.asList(
+                UserSession.ROLE_ADMIN, UserSession.ROLE_MANAGER, UserSession.ROLE_EMPLOYEE,
+                UserSession.ROLE_HR, UserSession.ROLE_SALES));
+        ACCESS.put("dashboard", all);
+        ACCESS.put("order", new HashSet<>(Arrays.asList(UserSession.ROLE_ADMIN, UserSession.ROLE_MANAGER, UserSession.ROLE_SALES, UserSession.ROLE_EMPLOYEE)));
+        ACCESS.put("hr",    new HashSet<>(Arrays.asList(UserSession.ROLE_ADMIN, UserSession.ROLE_MANAGER, UserSession.ROLE_HR)));
+        ACCESS.put("crm",   new HashSet<>(Arrays.asList(UserSession.ROLE_ADMIN, UserSession.ROLE_MANAGER, UserSession.ROLE_SALES)));
+        ACCESS.put("sales", new HashSet<>(Arrays.asList(UserSession.ROLE_ADMIN, UserSession.ROLE_MANAGER, UserSession.ROLE_SALES)));
+        ACCESS.put("inventory",     all);
+        ACCESS.put("manufacturing", all);
+        ACCESS.put("finance",     new HashSet<>(Arrays.asList(UserSession.ROLE_ADMIN, UserSession.ROLE_MANAGER)));
+        ACCESS.put("accounting",  new HashSet<>(Arrays.asList(UserSession.ROLE_ADMIN, UserSession.ROLE_MANAGER)));
+        ACCESS.put("project", all);
+        ACCESS.put("reporting", all);
+        ACCESS.put("analytics", all);
+        ACCESS.put("bi", all);
+        ACCESS.put("marketing",  new HashSet<>(Arrays.asList(UserSession.ROLE_ADMIN, UserSession.ROLE_MANAGER, UserSession.ROLE_SALES)));
+        ACCESS.put("automation", all);
+        ACCESS.put("integration", new HashSet<>(Arrays.asList(UserSession.ROLE_ADMIN, UserSession.ROLE_MANAGER)));
+    }
 
+    public MainFrame() {
         setupFrame();
         initializeComponents();
         setupNavigation();
-
-        // Show dashboard by default
         showPanel("dashboard");
     }
 
-    /**
-     * Configures the JFrame properties.
-     */
     private void setupFrame() {
         setTitle(Constants.APP_NAME);
         setSize(Constants.MAIN_SIZE);
@@ -94,75 +87,48 @@ public class MainFrame extends JFrame {
         UIHelper.centerWindow(this);
     }
 
-    /**
-     * Creates and arranges all UI components.
-     */
     private void initializeComponents() {
-        // Main container
         JPanel mainContainer = new JPanel(new BorderLayout());
-
-        // Create sidebar
         sidebar = new Sidebar();
-
-        // Create header bar
         headerBar = createHeaderBar();
-
-        // Create content panel with CardLayout
         cardLayout = new CardLayout();
         contentPanel = new JPanel(cardLayout);
         contentPanel.setBackground(Constants.BG_LIGHT);
 
-        // Right side panel (header + content)
         JPanel rightPanel = new JPanel(new BorderLayout());
         rightPanel.add(headerBar, BorderLayout.NORTH);
         rightPanel.add(contentPanel, BorderLayout.CENTER);
 
-        // Add to main container
         mainContainer.add(sidebar, BorderLayout.WEST);
         mainContainer.add(rightPanel, BorderLayout.CENTER);
-
         setContentPane(mainContainer);
     }
 
-    /**
-     * Creates the top header bar with user info and logout.
-     */
     private JPanel createHeaderBar() {
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(Constants.BG_WHITE);
         header.setPreferredSize(new Dimension(0, 60));
         header.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(220, 220, 220)),
-            new EmptyBorder(0, Constants.PADDING_LARGE, 0, Constants.PADDING_LARGE)
-        ));
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(220, 220, 220)),
+                new EmptyBorder(0, Constants.PADDING_LARGE, 0, Constants.PADDING_LARGE)));
 
-        // Left side - current module name
         currentModuleLabel = new JLabel(Constants.MODULE_DASHBOARD);
         currentModuleLabel.setFont(Constants.FONT_SUBTITLE);
         currentModuleLabel.setForeground(Constants.TEXT_PRIMARY);
 
-        // Right side - user info and logout
-        JPanel userPanel = createUserPanel();
-
         header.add(currentModuleLabel, BorderLayout.WEST);
-        header.add(userPanel, BorderLayout.EAST);
-
+        header.add(createUserPanel(), BorderLayout.EAST);
         return header;
     }
 
-    /**
-     * Creates the user info panel with logout button.
-     */
     private JPanel createUserPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, Constants.PADDING_MEDIUM, 0));
         panel.setOpaque(false);
 
-        // Get current user
-        User user = AuthenticationService.getInstance().getCurrentUser();
-        String displayName = (user != null) ? user.getFullName() : "User";
-        String role = (user != null) ? user.getRole() : "";
+        UserSession session = UserSession.getInstance();
+        String displayName = session.isValid() ? session.getDisplayName() : "User";
+        String role = session.isValid() ? session.getRole() : "";
 
-        // User info
         JPanel userInfo = new JPanel();
         userInfo.setLayout(new BoxLayout(userInfo, BoxLayout.Y_AXIS));
         userInfo.setOpaque(false);
@@ -180,7 +146,6 @@ public class MainFrame extends JFrame {
         userInfo.add(nameLabel);
         userInfo.add(roleLabel);
 
-        // Logout button
         JButton logoutButton = new JButton("Logout");
         logoutButton.setFont(Constants.FONT_SMALL);
         logoutButton.setForeground(Constants.DANGER_COLOR);
@@ -189,52 +154,30 @@ public class MainFrame extends JFrame {
         logoutButton.setFocusPainted(false);
         logoutButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         logoutButton.setPreferredSize(new Dimension(80, 30));
-
         logoutButton.addActionListener(e -> handleLogout());
 
         panel.add(userInfo);
         panel.add(Box.createHorizontalStrut(Constants.PADDING_MEDIUM));
         panel.add(logoutButton);
-
         return panel;
     }
 
-    /**
-     * Sets up navigation by connecting sidebar to content switching.
-     *
-     * This demonstrates the OBSERVER/CALLBACK pattern:
-     * - Sidebar fires events when items are clicked
-     * - MainFrame listens and responds by switching content
-     */
     private void setupNavigation() {
         sidebar.setMenuActionListener(this::handleNavigation);
     }
 
-    /**
-     * Handles navigation events from the sidebar.
-     *
-     * @param e The action event containing the module command
-     */
-    private void handleNavigation(ActionEvent e) {
-        String command = e.getActionCommand();
-        showPanel(command);
-    }
+    private void handleNavigation(ActionEvent e) { showPanel(e.getActionCommand()); }
 
-    /**
-     * Shows the panel for the given command.
-     * Uses lazy initialization - creates panel only when first needed.
-     *
-     * @param command The module command (e.g., "dashboard", "hr", "crm")
-     */
     private void showPanel(String command) {
-        // Redirect order to sales (both use the same panel)
-        if ("order".equals(command)) {
-            command = "sales";
+        UserSession session = UserSession.getInstance();
+        Set<String> allowed = ACCESS.get(command);
+        if (allowed != null && session.isValid() && !allowed.contains(session.getRole())) {
+            ExceptionHandler.handle(this,
+                    AuthException.unauthorizedModule(command, session.getRole()));
+            return;
         }
 
-        // Check if panel is already created
         if (!panelCache.containsKey(command)) {
-            // Create and cache the panel
             try {
                 BasePanel panel = createPanelForCommand(command);
                 panelCache.put(command, panel);
@@ -245,107 +188,46 @@ public class MainFrame extends JFrame {
                 return;
             }
         }
-
-        // Get the panel and update header
         BasePanel panel = panelCache.get(command);
         currentModuleLabel.setText(panel.getPanelTitle());
-
-        // Refresh the panel data
         panel.refreshData();
-
-        // Show the panel using CardLayout
         cardLayout.show(contentPanel, command);
     }
 
     /**
-     * Factory method to create the appropriate panel for a command.
-     *
-     * This is a simple FACTORY METHOD pattern:
-     * - Input: a string command
-     * - Output: the appropriate BasePanel subclass
-     *
-     * As we implement more modules, we add more cases here.
-     *
-     * @param command The module command
-     * @return The appropriate panel instance
+     * Factory Method: routes command string -> correct BasePanel subclass.
+     * Two deep-integration modules (orders, hr) + the integrated dashboard;
+     * everything else is a rich facade mockup.
      */
     private BasePanel createPanelForCommand(String command) {
         switch (command) {
-            case "dashboard":
-                return new DashboardPanel();
-
-            // All other modules use PlaceholderPanel for now
-            // As we implement them in future batches, we'll add cases here
-            case "crm":
-                return new CRMPanel();
-            case "sales":
-                return new SalesPanel();
-            case "inventory":
-                return new InventoryPanel();
-            case "manufacturing":
-                return new ManufacturingPanel();
-            case "finance":
-                return new FinancePanel();
-            case "accounting":
-                return new AccountingPanel();
-            case "hr":
-                return new HRPanel();
-            case "project":
-                return new ProjectPanel();
-            case "reporting":
-                return new ReportingPanel();
-            case "analytics":
-                return new AnalyticsPanel();
-            case "bi":
-                return new BIPanel();
-            case "marketing":
-                return new MarketingPanel();
-            case "automation":
-                return new AutomationPanel();
-            case "integration":
-                return new IntegrationPanel();
-
-            default:
-                return new PlaceholderPanel("Unknown Module");
+            case "dashboard":     return new IntegratedDashboardPanel();
+            case "order":         return new OrdersHomePanel();
+            case "hr":            return new HRHomePanel();
+            case "crm":           return new CRMFacadePanel();
+            case "sales":         return new SalesFacadePanel();
+            case "inventory":     return new SupplyChainFacadePanel();
+            case "manufacturing": return new ManufacturingFacadePanel();
+            case "finance":       return new FinanceFacadePanel();
+            case "accounting":    return new AccountingFacadePanel();
+            case "project":       return new ProjectFacadePanel();
+            case "reporting":     return new ReportingFacadePanel();
+            case "analytics":     return new AnalyticsFacadePanel();
+            case "bi":            return new BIFacadePanel();
+            case "marketing":     return new MarketingFacadePanel();
+            case "automation":    return new AutomationFacadePanel();
+            case "integration":   return new IntegrationFacadePanel();
+            default:              return new IntegratedDashboardPanel();
         }
     }
 
-    /**
-     * Handles user logout.
-     */
     private void handleLogout() {
-        // Confirm logout
         boolean confirm = UIHelper.showConfirm(this, "Are you sure you want to logout?");
-
         if (confirm) {
-            // Logout from service
-            AuthenticationService.getInstance().logout();
-
-            // Show login frame
+            UserSession.getInstance().end();
             LoginFrame loginFrame = new LoginFrame();
             loginFrame.setVisible(true);
-
-            // Close this frame
             this.dispose();
         }
-    }
-
-    /**
-     * Main entry point for the application.
-     */
-    public static void main(String[] args) {
-        // Set look and feel to system default
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {
-            // Fall back to default look and feel
-        }
-
-        // Run on Event Dispatch Thread (EDT) - required for Swing
-        SwingUtilities.invokeLater(() -> {
-            // Show the main frame
-            MainFrame mainFrame = new MainFrame();
-            mainFrame.setVisible(true);
-        });
     }
 }
