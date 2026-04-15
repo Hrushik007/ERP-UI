@@ -5,6 +5,7 @@ import com.erp.exception.ExceptionHandler;
 import com.erp.exception.IntegrationException;
 import com.erp.integration.IUIService;
 import com.erp.integration.ServiceLocator;
+import com.erp.integration.endpoints.OrdersEndpoints;
 import com.erp.model.dto.OrderDTO;
 
 import javax.swing.*;
@@ -47,14 +48,14 @@ public class OrderController {
         if (statusFilter != null) params.put("status", statusFilter);
         if (query != null) params.put("q", query);
         submit(owner,
-                () -> OrderController.<List<OrderDTO>>cast(ui.fetchData(IUIService.ORDERS_LIST, params, List.class)),
+                () -> OrderController.<List<OrderDTO>>cast(ui.fetchData(OrdersEndpoints.ORDERS_LIST, params, List.class)),
                 list -> listeners.forEach(l -> l.onOrdersLoaded(list)),
                 () -> loadOrders(owner, statusFilter, query));
     }
 
     public void loadStats(Component owner) {
         submit(owner,
-                () -> ui.fetchData(IUIService.ORDERS_STATS, new HashMap<>(), Map.class),
+                () -> ui.fetchData(OrdersEndpoints.ORDERS_STATS, new HashMap<>(), Map.class),
                 stats -> listeners.forEach(l -> l.onStatsLoaded(stats)),
                 () -> loadStats(owner));
     }
@@ -63,7 +64,7 @@ public class OrderController {
 
     public void createOrder(Component owner, OrderDTO dto, Consumer<OrderDTO> onSuccess) {
         submit(owner,
-                () -> ui.sendData(IUIService.ORDERS_CREATE, dto, OrderDTO.class),
+                () -> ui.sendData(OrdersEndpoints.ORDERS_CREATE, dto, OrderDTO.class),
                 created -> {
                     listeners.forEach(l -> l.onOrderChanged(created));
                     if (onSuccess != null) onSuccess.accept(created);
@@ -72,22 +73,22 @@ public class OrderController {
     }
 
     public void approve(Component owner, String orderId, Runnable after) {
-        act(owner, IUIService.ORDERS_APPROVE, orderId, after, () -> approve(owner, orderId, after));
+        act(owner, OrdersEndpoints.ORDERS_APPROVE, orderId, after, () -> approve(owner, orderId, after));
     }
 
     public void reject(Component owner, String orderId, Runnable after) {
-        act(owner, IUIService.ORDERS_REJECT, orderId, after, () -> reject(owner, orderId, after));
+        act(owner, OrdersEndpoints.ORDERS_REJECT, orderId, after, () -> reject(owner, orderId, after));
     }
 
     public void sendForRevision(Component owner, String orderId, Runnable after) {
-        act(owner, IUIService.ORDERS_REVISION, orderId, after, () -> sendForRevision(owner, orderId, after));
+        act(owner, OrdersEndpoints.ORDERS_REVISION, orderId, after, () -> sendForRevision(owner, orderId, after));
     }
 
     public void ship(Component owner, String orderId, String courier, String tracking, Runnable after) {
         Map<String, Object> p = new HashMap<>();
         p.put("orderId", orderId); p.put("courier", courier); p.put("tracking", tracking);
         submit(owner,
-                () -> ui.sendData(IUIService.ORDERS_SHIP, p, OrderDTO.class),
+                () -> ui.sendData(OrdersEndpoints.ORDERS_SHIP, p, OrderDTO.class),
                 updated -> {
                     listeners.forEach(l -> l.onOrderChanged(updated));
                     if (after != null) after.run();
@@ -99,7 +100,7 @@ public class OrderController {
         Map<String, Object> p = new HashMap<>();
         p.put("orderId", orderId); p.put("amount", amount); p.put("simulateFail", simulateFail);
         submit(owner,
-                () -> ui.sendData(IUIService.ORDERS_PAY, p, OrderDTO.class),
+                () -> ui.sendData(OrdersEndpoints.ORDERS_PAY, p, OrderDTO.class),
                 updated -> {
                     listeners.forEach(l -> l.onOrderChanged(updated));
                     if (after != null) after.run();
@@ -111,7 +112,7 @@ public class OrderController {
         Map<String, Object> p = new HashMap<>();
         p.put("orderId", orderId); p.put("reason", reason);
         submit(owner,
-                () -> ui.sendData(IUIService.ORDERS_CANCEL, p, OrderDTO.class),
+                () -> ui.sendData(OrdersEndpoints.ORDERS_CANCEL, p, OrderDTO.class),
                 updated -> {
                     listeners.forEach(l -> l.onOrderChanged(updated));
                     if (after != null) after.run();
