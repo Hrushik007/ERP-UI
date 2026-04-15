@@ -1,5 +1,7 @@
 package com.erp.view.components;
 
+import com.erp.session.RoleAccess;
+import com.erp.session.UserSession;
 import com.erp.util.Constants;
 
 import javax.swing.*;
@@ -36,10 +38,16 @@ public class Sidebar extends JPanel {
     // Listener for menu item clicks (callback pattern)
     private ActionListener menuActionListener;
 
+    private final String role;
+
+    public Sidebar() { this(null); }
+
     /**
-     * Constructor initializes the sidebar with the ERP modules.
+     * Role-aware constructor — only modules the role may access are rendered.
+     * A null role shows everything (used during boot before login).
      */
-    public Sidebar() {
+    public Sidebar(String role) {
+        this.role = role;
         menuItems = new ArrayList<>();
         setupPanel();
         createMenuItems();
@@ -59,34 +67,21 @@ public class Sidebar extends JPanel {
      * Creates all the menu items for ERP modules.
      */
     private void createMenuItems() {
-        // Dashboard is always first
         addMenuItem(Constants.MODULE_DASHBOARD, "dashboard");
-
-        // Core business modules
+        addMenuItem(Constants.MODULE_ORDER, "order");
         addMenuItem(Constants.MODULE_CRM, "crm");
         addMenuItem(Constants.MODULE_SALES, "sales");
         addMenuItem(Constants.MODULE_INVENTORY, "inventory");
         addMenuItem(Constants.MODULE_MANUFACTURING, "manufacturing");
-
-        // Financial modules
         addMenuItem(Constants.MODULE_FINANCE, "finance");
         addMenuItem(Constants.MODULE_ACCOUNTING, "accounting");
-
-        // Human resources
         addMenuItem(Constants.MODULE_HR, "hr");
         addMenuItem(Constants.MODULE_PROJECT, "project");
-
-        // Analytics and reporting
         addMenuItem(Constants.MODULE_REPORTING, "reporting");
         addMenuItem(Constants.MODULE_ANALYTICS, "analytics");
         addMenuItem(Constants.MODULE_BI, "bi");
-
-        // Marketing and automation
         addMenuItem(Constants.MODULE_MARKETING, "marketing");
         addMenuItem(Constants.MODULE_AUTOMATION, "automation");
-
-        // Integration
-        addMenuItem(Constants.MODULE_INTEGRATION, "integration");
     }
 
     /**
@@ -96,6 +91,12 @@ public class Sidebar extends JPanel {
      * @param actionCommand The command string for identification
      */
     private void addMenuItem(String title, String actionCommand) {
+        String effectiveRole = role;
+        if (effectiveRole == null) {
+            UserSession s = UserSession.getInstance();
+            if (s.isValid()) effectiveRole = s.getRole();
+        }
+        if (effectiveRole != null && !RoleAccess.canAccess(actionCommand, effectiveRole)) return;
         MenuItem item = new MenuItem(title, actionCommand);
         menuItems.add(item);
     }
@@ -148,14 +149,14 @@ public class Sidebar extends JPanel {
         panel.setBorder(new EmptyBorder(Constants.PADDING_LARGE, Constants.PADDING_MEDIUM,
                                         Constants.PADDING_LARGE, Constants.PADDING_MEDIUM));
 
-        JLabel brandLabel = new JLabel("ERP System");
-        brandLabel.setFont(Constants.FONT_TITLE);
-        brandLabel.setForeground(Constants.TEXT_LIGHT);
+        JLabel brandLabel = new JLabel("TATA MOTORS");
+        brandLabel.setFont(new Font(Constants.FONT_FAMILY, Font.BOLD, 20));
+        brandLabel.setForeground(Constants.TATA_GOLD);
         brandLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-        JLabel versionLabel = new JLabel("v" + Constants.APP_VERSION);
+        JLabel versionLabel = new JLabel("ERP v" + Constants.APP_VERSION);
         versionLabel.setFont(Constants.FONT_SMALL);
-        versionLabel.setForeground(new Color(150, 150, 150));
+        versionLabel.setForeground(new Color(200, 210, 230));
         versionLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
         panel.add(brandLabel, BorderLayout.CENTER);
