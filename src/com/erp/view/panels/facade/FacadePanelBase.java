@@ -1,6 +1,7 @@
 package com.erp.view.panels.facade;
 
 import com.erp.util.Constants;
+import com.erp.util.UIHelper;
 import com.erp.view.components.DashboardCard;
 import com.erp.view.components.FakeChartPanel;
 import com.erp.view.panels.BasePanel;
@@ -38,11 +39,7 @@ public abstract class FacadePanelBase extends BasePanel {
 
     /** Standard "under construction" response for every interactive element. */
     protected void stubAction(String feature) {
-        JOptionPane.showMessageDialog(
-                this,
-                "\"" + feature + "\" feature yet to be developed.\n\nThis module is a visual mockup.",
-                "Module under construction",
-                JOptionPane.INFORMATION_MESSAGE);
+        UIHelper.showNotAvailable(this, feature);
     }
 
     protected ActionListener stub(String feature) { return e -> stubAction(feature); }
