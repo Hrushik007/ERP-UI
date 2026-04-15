@@ -4,7 +4,7 @@ package com.erp.session;
  * Singleton session holder. Created on successful login.
  * Contains the identity (userId, role) and validity flag.
  *
- * Roles: ADMIN, MANAGER, EMPLOYEE, HR, SALES.
+ * Roles: ADMIN, MANAGER, EMPLOYEE, HR, SALES, MFG, SCM.
  */
 public final class UserSession {
 
@@ -13,6 +13,8 @@ public final class UserSession {
     public static final String ROLE_EMPLOYEE = "Employee";
     public static final String ROLE_HR = "HR";
     public static final String ROLE_SALES = "Sales";
+    public static final String ROLE_MFG = "Manufacturing";
+    public static final String ROLE_SCM = "SupplyChain";
 
     private static UserSession instance;
 
