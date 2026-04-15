@@ -190,6 +190,63 @@ public final class UIHelper {
         return result == JOptionPane.YES_OPTION;
     }
 
+    /** Standard dialog for facade modules / unfinished features. */
+    public static void showNotAvailable(Component parent, String feature) {
+        JOptionPane.showMessageDialog(parent,
+                "\"" + feature + "\" has not been developed yet.\n\n"
+                        + "This module is part of the visual mockup showcase.",
+                "Feature unavailable",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    /** Danger-styled confirmation for irreversible actions. */
+    public static boolean confirmDanger(Component parent, String message) {
+        int result = JOptionPane.showConfirmDialog(parent,
+                message + "\n\nThis action cannot be undone.",
+                "Confirm",
+                JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        return result == JOptionPane.YES_OPTION;
+    }
+
+    /** Small pill badge showing a user role, colored by role. */
+    public static JComponent roleBadge(String role) {
+        final String label = role == null ? "" : role.toUpperCase();
+        final Color bg, fg;
+        switch (role == null ? "" : role) {
+            case "Admin":    bg = Constants.TATA_GOLD; fg = Constants.TATA_NAVY; break;
+            case "Manager":  bg = Constants.TATA_BLUE; fg = Constants.TATA_WHITE; break;
+            case "Employee": bg = new Color(39, 174, 96); fg = Constants.TATA_WHITE; break;
+            case "HR":       bg = new Color(142, 68, 173); fg = Constants.TATA_WHITE; break;
+            case "Sales":    bg = new Color(192, 57, 43);  fg = Constants.TATA_WHITE; break;
+            case "Manufacturing": bg = new Color(211, 84, 0); fg = Constants.TATA_WHITE; break;
+            case "SupplyChain":   bg = new Color(22, 160, 133); fg = Constants.TATA_WHITE; break;
+            default:         bg = Constants.TATA_MUTED;    fg = Constants.TATA_WHITE; break;
+        }
+        JLabel pill = new JLabel(label) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(bg);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), getHeight(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        pill.setOpaque(false);
+        pill.setForeground(fg);
+        pill.setFont(new Font(Constants.FONT_FAMILY, Font.BOLD, 10));
+        pill.setHorizontalAlignment(SwingConstants.CENTER);
+        pill.setBorder(new EmptyBorder(4, 12, 4, 12));
+        return pill;
+    }
+
+    /** Indian-locale currency (₹18,42,500.00). */
+    public static String formatINR(java.math.BigDecimal amount) {
+        if (amount == null) return "₹0";
+        java.text.NumberFormat nf = java.text.NumberFormat.getCurrencyInstance(new java.util.Locale("en", "IN"));
+        return nf.format(amount);
+    }
+
     /**
      * Styles a JTable with consistent header colors.
      * Uses a custom renderer to ensure header text is visible.
