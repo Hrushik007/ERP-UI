@@ -5,6 +5,7 @@ import com.erp.exception.ExceptionHandler;
 import com.erp.exception.IntegrationException;
 import com.erp.integration.IUIService;
 import com.erp.integration.ServiceLocator;
+import com.erp.integration.endpoints.HREndpoints;
 import com.erp.model.dto.EmployeeDTO;
 
 import javax.swing.*;
@@ -50,56 +51,56 @@ public class HRController {
         if (status != null) p.put("status", status);
         if (q != null) p.put("q", q);
         submit(owner,
-                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(IUIService.HR_EMPLOYEES, p, List.class)),
+                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(HREndpoints.HR_EMPLOYEES, p, List.class)),
                 list -> listeners.forEach(l -> l.onEmployeesLoaded(list)),
                 () -> loadEmployees(owner, department, status, q));
     }
 
     public void loadRecruitment(Component owner) {
         submit(owner,
-                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(IUIService.HR_RECRUITMENT, new HashMap<>(), List.class)),
+                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(HREndpoints.HR_RECRUITMENT, new HashMap<>(), List.class)),
                 list -> listeners.forEach(l -> l.onRecruitmentLoaded(list)),
                 () -> loadRecruitment(owner));
     }
 
     public void loadOnboarding(Component owner) {
         submit(owner,
-                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(IUIService.HR_ONBOARDING, new HashMap<>(), List.class)),
+                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(HREndpoints.HR_ONBOARDING, new HashMap<>(), List.class)),
                 list -> listeners.forEach(l -> l.onOnboardingLoaded(list)),
                 () -> loadOnboarding(owner));
     }
 
     public void loadPayroll(Component owner) {
         submit(owner,
-                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(IUIService.HR_PAYROLL, new HashMap<>(), List.class)),
+                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(HREndpoints.HR_PAYROLL, new HashMap<>(), List.class)),
                 list -> listeners.forEach(l -> l.onPayrollLoaded(list)),
                 () -> loadPayroll(owner));
     }
 
     public void loadPerformance(Component owner) {
         submit(owner,
-                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(IUIService.HR_PERFORMANCE, new HashMap<>(), List.class)),
+                () -> HRController.<List<EmployeeDTO>>cast(ui.fetchData(HREndpoints.HR_PERFORMANCE, new HashMap<>(), List.class)),
                 list -> listeners.forEach(l -> l.onPerformanceLoaded(list)),
                 () -> loadPerformance(owner));
     }
 
     public void loadAttendance(Component owner) {
         submit(owner,
-                () -> HRController.<List<String[]>>cast(ui.fetchData(IUIService.HR_ATTENDANCE, new HashMap<>(), List.class)),
+                () -> HRController.<List<String[]>>cast(ui.fetchData(HREndpoints.HR_ATTENDANCE, new HashMap<>(), List.class)),
                 list -> listeners.forEach(l -> l.onAttendanceLoaded(list)),
                 () -> loadAttendance(owner));
     }
 
     public void loadLeave(Component owner) {
         submit(owner,
-                () -> HRController.<List<String[]>>cast(ui.fetchData(IUIService.HR_LEAVE, new HashMap<>(), List.class)),
+                () -> HRController.<List<String[]>>cast(ui.fetchData(HREndpoints.HR_LEAVE, new HashMap<>(), List.class)),
                 list -> listeners.forEach(l -> l.onLeaveLoaded(list)),
                 () -> loadLeave(owner));
     }
 
     public void loadStats(Component owner) {
         submit(owner,
-                () -> ui.fetchData(IUIService.HR_STATS, new HashMap<>(), Map.class),
+                () -> ui.fetchData(HREndpoints.HR_STATS, new HashMap<>(), Map.class),
                 stats -> listeners.forEach(l -> l.onStatsLoaded(stats)),
                 () -> loadStats(owner));
     }
@@ -108,7 +109,7 @@ public class HRController {
 
     public void updateEmployee(Component owner, EmployeeDTO dto, Consumer<EmployeeDTO> after) {
         submit(owner,
-                () -> ui.sendData(IUIService.HR_EMPLOYEE_UPDATE, dto, EmployeeDTO.class),
+                () -> ui.sendData(HREndpoints.HR_EMPLOYEE_UPDATE, dto, EmployeeDTO.class),
                 updated -> {
                     listeners.forEach(l -> l.onEmployeeChanged(updated));
                     if (after != null) after.accept(updated);
@@ -118,7 +119,7 @@ public class HRController {
 
     public void updateOnboarding(Component owner, EmployeeDTO dto, Runnable after) {
         submit(owner,
-                () -> ui.sendData(IUIService.HR_ONBOARDING_UPDATE, dto, EmployeeDTO.class),
+                () -> ui.sendData(HREndpoints.HR_ONBOARDING_UPDATE, dto, EmployeeDTO.class),
                 updated -> {
                     listeners.forEach(l -> l.onEmployeeChanged(updated));
                     if (after != null) after.run();
@@ -130,7 +131,7 @@ public class HRController {
         Map<String, Object> p = new HashMap<>();
         p.put("employeeId", employeeId); p.put("stage", stage); p.put("score", score);
         submit(owner,
-                () -> ui.sendData(IUIService.HR_RECRUITMENT_STAGE, p, EmployeeDTO.class),
+                () -> ui.sendData(HREndpoints.HR_RECRUITMENT_STAGE, p, EmployeeDTO.class),
                 updated -> {
                     listeners.forEach(l -> l.onEmployeeChanged(updated));
                     if (after != null) after.run();
@@ -140,7 +141,7 @@ public class HRController {
 
     public void transferSalary(Component owner, String employeeId, Runnable after) {
         submit(owner,
-                () -> ui.sendData(IUIService.HR_PAYROLL_TRANSFER, employeeId, String.class),
+                () -> ui.sendData(HREndpoints.HR_PAYROLL_TRANSFER, employeeId, String.class),
                 ok -> { if (after != null) after.run(); },
                 () -> transferSalary(owner, employeeId, after));
     }
@@ -151,7 +152,7 @@ public class HRController {
         p.put("employeeId", employeeId); p.put("checkIn", checkIn);
         p.put("checkOut", checkOut); p.put("overtime", overtime);
         submit(owner,
-                () -> ui.sendData(IUIService.HR_ATTENDANCE_LOG, p, String.class),
+                () -> ui.sendData(HREndpoints.HR_ATTENDANCE_LOG, p, String.class),
                 ok -> { if (after != null) after.run(); },
                 () -> logAttendance(owner, employeeId, checkIn, checkOut, overtime, after));
     }
@@ -160,7 +161,7 @@ public class HRController {
         Map<String, Object> p = new HashMap<>();
         p.put("id", leaveId); p.put("action", action);
         submit(owner,
-                () -> ui.sendData(IUIService.HR_LEAVE_ACTION, p, String.class),
+                () -> ui.sendData(HREndpoints.HR_LEAVE_ACTION, p, String.class),
                 ok -> { if (after != null) after.run(); },
                 () -> leaveAction(owner, leaveId, action, after));
     }
