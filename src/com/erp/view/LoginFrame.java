@@ -6,6 +6,7 @@ import com.erp.exception.ExceptionHandler;
 import com.erp.exception.IntegrationException;
 import com.erp.integration.IUIService;
 import com.erp.integration.ServiceLocator;
+import com.erp.integration.endpoints.AuthEndpoints;
 import com.erp.model.dto.UserSessionDTO;
 import com.erp.session.UserSession;
 import com.erp.util.Constants;
@@ -81,14 +82,14 @@ public class LoginFrame extends JFrame {
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setBorder(new EmptyBorder(50, 50, 40, 50));
 
-        JLabel brand = new JLabel("ERP System");
+        JLabel brand = new JLabel("TATA MOTORS");
         brand.setFont(new Font(Constants.FONT_FAMILY, Font.BOLD, 30));
-        brand.setForeground(Constants.PRIMARY_COLOR);
+        brand.setForeground(Constants.TATA_NAVY);
         brand.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel tagline = new JLabel("Car Manufacturing Suite");
+        JLabel tagline = new JLabel("Enterprise Resource Planning  \u00B7  " + Constants.APP_SLOGAN);
         tagline.setFont(Constants.FONT_REGULAR);
-        tagline.setForeground(Constants.TEXT_SECONDARY);
+        tagline.setForeground(Constants.TATA_GOLD.darker());
         tagline.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel signIn = new JLabel("Sign in to continue");
@@ -130,8 +131,9 @@ public class LoginFrame extends JFrame {
         lockoutLabel.setForeground(Constants.DANGER_COLOR);
         lockoutLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel hint = new JLabel("<html><span style='color:#7F8C8D'>Credentials hint: admin/admin123, "
-                + "manager/manager123, employee/emp123, hr/hr123, sales/sales123</span></html>");
+        JLabel hint = new JLabel("<html><span style='color:#7F8C8D'>Credentials: admin/admin123, "
+                + "manager/manager123, emp001/emp123, hr_admin/hr123, sales01/sales123, "
+                + "mfg_admin/mfg123, scm_admin/scm123</span></html>");
         hint.setFont(Constants.FONT_SMALL);
         hint.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -190,11 +192,13 @@ public class LoginFrame extends JFrame {
         p.add(Box.createVerticalStrut(20));
 
         String[][] roles = {
-                {UserSession.ROLE_ADMIN,    "admin",    "Full access across every module", "A"},
-                {UserSession.ROLE_MANAGER,  "manager",  "Approve orders, view reports",    "M"},
-                {UserSession.ROLE_EMPLOYEE, "employee", "Assembly-line & daily operations","E"},
-                {UserSession.ROLE_HR,       "hr",       "People, payroll, onboarding",     "H"},
-                {UserSession.ROLE_SALES,    "sales",    "Dealers, orders and customers",   "S"},
+                {UserSession.ROLE_ADMIN,    "admin",     "Full access across every module",   "A"},
+                {UserSession.ROLE_MANAGER,  "manager",   "Approve orders, view reports",      "M"},
+                {UserSession.ROLE_EMPLOYEE, "emp001",    "Assembly-line & daily operations",  "E"},
+                {UserSession.ROLE_HR,       "hr_admin",  "People, payroll, onboarding",       "H"},
+                {UserSession.ROLE_SALES,    "sales01",   "Dealers, orders and customers",     "S"},
+                {UserSession.ROLE_MFG,      "mfg_admin", "Shop floor, BOMs, production runs", "F"},
+                {UserSession.ROLE_SCM,      "scm_admin", "Suppliers, POs, GRNs, invoices",    "C"},
         };
 
         JPanel grid = new JPanel(new GridLayout(0, 2, 14, 14));
@@ -234,7 +238,7 @@ public class LoginFrame extends JFrame {
                 payload.put("username", u);
                 payload.put("password", pw);
                 payload.put("role", selectedRole != null ? selectedRole.role : null);
-                return ui.sendData(IUIService.AUTH_LOGIN, payload, UserSessionDTO.class);
+                return ui.sendData(AuthEndpoints.AUTH_LOGIN, payload, UserSessionDTO.class);
             }
             @Override protected void done() {
                 try {
@@ -334,7 +338,8 @@ public class LoginFrame extends JFrame {
             for (RoleSelectable c : roleCards) c.setSelected(false);
             setSelected(true);
             selectedRole = this;
-            if (usernameField.getText().trim().isEmpty()) usernameField.setText(getDefaultUsername());
+            usernameField.setText(getDefaultUsername());
+            passwordField.setText("");
             passwordField.requestFocus();
         }
     }
