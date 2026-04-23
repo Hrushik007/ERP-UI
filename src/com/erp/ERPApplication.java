@@ -1,8 +1,10 @@
 package com.erp;
 
+import com.erp.util.Constants;
 import com.erp.view.LoginFrame;
 
 import javax.swing.*;
+import java.awt.*;
 
 /**
  * ERPApplication is the main entry point for the application.
@@ -69,6 +71,16 @@ public class ERPApplication {
             UIManager.put("Button.arc", 10);
             UIManager.put("Component.arc", 10);
             UIManager.put("TextComponent.arc", 10);
+
+            // Global dark button theme so plain JButtons remain visible.
+            UIManager.put("Button.background", Constants.PRIMARY_DARK);
+            UIManager.put("Button.foreground", Constants.TEXT_LIGHT);
+            UIManager.put("Button.select", Constants.PRIMARY_COLOR);
+            UIManager.put("Button.font", Constants.FONT_BUTTON);
+            UIManager.put("Button.border", BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Constants.PRIMARY_DARK.darker(), 1),
+                BorderFactory.createEmptyBorder(8, 14, 8, 14)
+            ));
 
         } catch (ClassNotFoundException | InstantiationException |
                  IllegalAccessException | UnsupportedLookAndFeelException e) {

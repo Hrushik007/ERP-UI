@@ -1,21 +1,16 @@
 package com.erp.view.panels.hr;
 
-import com.erp.controller.HRController;
 import com.erp.util.Constants;
 import com.erp.view.panels.BasePanel;
-import com.erp.view.panels.orders.OrdersHomePanel;
 
 import javax.swing.*;
 import java.awt.*;
 
 /**
- * Tabbed container for the HR Management module (Team Jazz Girls).
- * All tabs share a single {@link HRController} so changes in one tab
- * propagate everywhere through the observer contract.
+ * PATTERN: Composite (Structural) — tabbed HR Management module.
  */
 public class HRHomePanel extends BasePanel {
 
-    private final HRController controller = new HRController();
     private JTabbedPane tabs;
 
     public HRHomePanel() { super("HR Management"); }
@@ -29,18 +24,14 @@ public class HRHomePanel extends BasePanel {
     @Override
     protected void layoutComponents() {
         contentPanel.setLayout(new BorderLayout());
-        tabs.addTab("Employees",    new EIMSPanel(controller));
-        tabs.addTab("Recruitment",  new RecruitmentPanel(controller));
-        tabs.addTab("Onboarding",   new OnboardingPanel(controller));
-        tabs.addTab("Payroll",      new PayrollPanel(controller));
-        tabs.addTab("Attendance & Leave", new AttendanceLeavePanel(controller));
-        tabs.addTab("Performance",  new PerformancePanel(controller));
+        tabs.addTab("Employee Info Management",       new EIMSPanel());
+        tabs.addTab("Recruitment & ATS",              new RecruitmentPanel());
+        tabs.addTab("Onboarding Management",          new OnboardingPanel());
+        tabs.addTab("Payroll Management",             new PayrollPanel());
+        tabs.addTab("Attendance & Leave Management",  new AttendanceLeavePanel());
+        tabs.addTab("Performance Management",         new PerformancePanel());
+        tabs.addTab("Workforce Planning & Budgeting", new WorkforcePlanningPanel());
+        tabs.addTab("Benefits Administration",        new BenefitsAdministrationPanel());
         contentPanel.add(tabs, BorderLayout.CENTER);
-    }
-
-    @Override
-    public void refreshData() {
-        Component sel = tabs.getSelectedComponent();
-        if (sel instanceof OrdersHomePanel.Refreshable) ((OrdersHomePanel.Refreshable) sel).refresh();
     }
 }

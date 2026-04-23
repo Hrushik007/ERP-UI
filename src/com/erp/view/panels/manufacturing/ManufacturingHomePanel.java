@@ -1,6 +1,12 @@
 package com.erp.view.panels.manufacturing;
 
-import com.erp.controller.ManufacturingController;
+import com.erp.util.Constants;
+import com.erp.view.panels.BasePanel;
+
+import javax.swing.*;
+import java.awt.*;
+
+import com.erp.service.InventoryApiServer;
 import com.erp.util.Constants;
 import com.erp.view.panels.BasePanel;
 
@@ -8,42 +14,47 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- * PATTERN: Composite (Structural) — a tabbed tree of Manufacturing sub-panels.
- *
- * All tabs share a single {@link ManufacturingController} so updates in one
- * tab propagate to others via the Observer contract.
+ * PATTERN: Composite (Structural) — tabbed Manufacturing module.
  */
 public class ManufacturingHomePanel extends BasePanel {
 
-    public interface Refreshable { void refresh(); }
-
-    private final ManufacturingController controller = new ManufacturingController();
     private JTabbedPane tabs;
 
-    public ManufacturingHomePanel() { super("Manufacturing"); }
+    public ManufacturingHomePanel() { 
+        super("Manufacturing"); 
+        
+        // Start the inbound REST API server to receive materials from Supply Chain
+        InventoryApiServer.getInstance().startServer();
+    }
 
     @Override
     protected void initializeComponents() {
         tabs = new JTabbedPane();
         tabs.setFont(Constants.FONT_HEADING);
+        
+        tabs.addChangeListener(e -> {
+            Component c = tabs.getSelectedComponent();
+            if (c != null) {
+                try {
+                    c.getClass().getMethod("refreshData").invoke(c);
+                } catch (Exception ex) {
+                    // Ignore if the tab doesn't have a refreshData method
+                }
+            }
+        });
     }
 
     @Override
     protected void layoutComponents() {
         contentPanel.setLayout(new BorderLayout());
-        tabs.addTab("Dashboard",         new ManufacturingDashboardTab(controller));
-        tabs.addTab("Assembly Lines",    new AssemblyLinesTab(controller));
-        tabs.addTab("Production Orders", new ProductionOrdersTab(controller));
-        tabs.addTab("BOM Explorer",      new BOMExplorerTab(controller));
-        tabs.addTab("Routing",           new RoutingTab(controller));
-        tabs.addTab("Work Centers",      new WorkCentersTab(controller));
-        tabs.addTab("Quality Control",   new QualityControlTab(controller));
+        tabs.addTab("Assembly Lines",    new AssemblyLinesTab());
+        tabs.addTab("Production Orders", new ProductionOrdersTab());
+        tabs.addTab("BOM Explorer",      new BOMExplorerTab());
+        tabs.addTab("Routing",           new RoutingTab());
+        tabs.addTab("Work Centers",      new WorkCentersTab());
+        tabs.addTab("Quality Control",   new QualityControlTab());
+        tabs.addTab("Planning",          new ManufacturingPlanningTab());
+        tabs.addTab("Shop Floor",        new ShopFloorExecutionTab());
         contentPanel.add(tabs, BorderLayout.CENTER);
-    }
-
-    @Override
-    public void refreshData() {
-        Component sel = tabs.getSelectedComponent();
-        if (sel instanceof Refreshable) ((Refreshable) sel).refresh();
     }
 }

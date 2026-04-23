@@ -1,64 +1,28 @@
 package com.erp.view.panels.facade;
 
 import com.erp.util.Constants;
-import com.erp.view.components.DashboardCard;
-import com.erp.view.components.FakeChartPanel;
+import com.erp.view.panels.BasePanel;
+import com.erp.view.panels.StubTabPanel;
 
 import javax.swing.*;
 import java.awt.*;
 
-public class FinanceFacadePanel extends FacadePanelBase {
-
+public class FinanceFacadePanel extends BasePanel {
+    private JTabbedPane tabs;
     public FinanceFacadePanel() { super("Financial Management"); }
-
     @Override
-    protected JComponent buildBody() {
-        JPanel body = new JPanel();
-        body.setOpaque(false);
-        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-
-        JPanel stats = statRow(
-                new DashboardCard("Revenue (FY26 YTD)", "\u20B9 48.2 Cr",  "+12.4% YoY",  Constants.SUCCESS_COLOR),
-                new DashboardCard("Outstanding A/R",    "\u20B9  6.8 Cr",  "34 overdue",  Constants.WARNING_COLOR),
-                new DashboardCard("A/P Due This Week",  "\u20B9  2.1 Cr",  "12 vendors",  Constants.PRIMARY_COLOR),
-                new DashboardCard("Cash Position",      "\u20B9 14.9 Cr",  "healthy",     Constants.ACCENT_COLOR)
-        );
-
-        JPanel charts = chartRow(
-                new FakeChartPanel("Monthly Revenue (Cr)", FakeChartPanel.Style.BAR,
-                        new int[]{32, 38, 41, 35, 44, 48},
-                        new String[]{"Nov","Dec","Jan","Feb","Mar","Apr"}),
-                new FakeChartPanel("Cash Flow Trend", FakeChartPanel.Style.LINE,
-                        new int[]{11, 12, 10, 13, 14, 15},
-                        new String[]{"Nov","Dec","Jan","Feb","Mar","Apr"})
-        );
-
-        JPanel toolbar = toolbar(
-                stubButton("New Invoice"),
-                secondaryStubButton("Record Payment"),
-                secondaryStubButton("Export to GL"),
-                secondaryStubButton("Budget Forecast")
-        );
-
-        String[] cols = {"Invoice #", "Customer", "Amount", "Due Date", "Status"};
-        Object[][] data = {
-                {"INV-3041", "Tata Motors Dealer",  "\u20B9 39,00,000", "2026-04-18", "DUE"},
-                {"INV-3042", "Mahindra Showroom",    "\u20B9 51,00,000", "2026-04-14", "OVERDUE"},
-                {"INV-3043", "Pearson Motors",       "\u20B9 24,75,000", "2026-04-22", "PAID"},
-                {"INV-3044", "Gupta Automobiles",    "\u20B9 42,00,000", "2026-04-30", "DUE"},
-                {"INV-3045", "Orion Logistics",      "\u20B9 52,50,000", "2026-05-05", "PARTIAL"},
-                {"INV-3046", "Blue Horizon Cars",    "\u20B9 25,10,000", "2026-04-25", "PAID"},
-        };
-
-        body.add(stats);
-        body.add(Box.createVerticalStrut(12));
-        body.add(charts);
-        body.add(Box.createVerticalStrut(12));
-        body.add(sectionCard("Recent Invoices", fakeTable(cols, data)));
-        body.add(Box.createVerticalStrut(10));
-        body.add(toolbar);
-        return new JScrollPane(body,
-                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
-                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+    protected void initializeComponents() {
+        tabs = new JTabbedPane();
+        tabs.setFont(Constants.FONT_HEADING);
+    }
+    @Override
+    protected void layoutComponents() {
+        contentPanel.setLayout(new BorderLayout());
+        tabs.addTab("Dashboard", new StubTabPanel("Finance Dashboard", "Key financial metrics and ratios.", new String[]{"Metric", "Current", "Budget", "Variance"}, "Refresh", "Export"));
+        tabs.addTab("General Ledger", new StubTabPanel("General Ledger", "Chart of accounts and journal entries.", new String[]{"Account", "Debit", "Credit", "Balance"}, "Post Entry", "Reverse", "Export"));
+        tabs.addTab("A/P", new StubTabPanel("Accounts Payable", "Supplier invoices and payment tracking.", new String[]{"Invoice", "Supplier", "Amount", "Due Date", "Status"}, "Record Invoice", "Pay", "Dispute"));
+        tabs.addTab("A/R", new StubTabPanel("Accounts Receivable", "Customer invoices and collections.", new String[]{"Invoice", "Customer", "Amount", "Due Date", "Status"}, "Create Invoice", "Collect", "Write-off"));
+        tabs.addTab("Cash Flow", new StubTabPanel("Cash Flow", "Daily cash position and forecasts.", new String[]{"Date", "Inflow", "Outflow", "Net", "Balance"}, "Project", "Monitor", "Alert"));
+        contentPanel.add(tabs, BorderLayout.CENTER);
     }
 }

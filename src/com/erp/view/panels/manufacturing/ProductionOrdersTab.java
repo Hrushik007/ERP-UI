@@ -1,121 +1,180 @@
 package com.erp.view.panels.manufacturing;
 
-import com.erp.controller.ManufacturingController;
-import com.erp.model.dto.ProductionOrderDTO;
+import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 import java.awt.*;
-import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Production orders tab — list + create + cancel (cancel honours the
- * {@code PRODUCTION_ORDER_CANCELLATION_BLOCKED} business rule).
+ * ProductionOrdersTab view.
  */
-public class ProductionOrdersTab extends JPanel
-        implements ManufacturingController.ManufacturingListener,
-                   ManufacturingHomePanel.Refreshable {
+public class ProductionOrdersTab extends JPanel {
 
-    private static final String[] COLUMNS = {"Order", "Product", "BOM", "Status", "Priority", "Planned", "Qty"};
+    private JTable orderTable;
+    private DefaultTableModel tableModel;
 
-    private final ManufacturingController controller;
-    private final DefaultTableModel model = new DefaultTableModel(COLUMNS, 0) {
-        @Override public boolean isCellEditable(int r, int c) { return false; }
-    };
-    private final JTable table = new JTable(model);
-
-    public ProductionOrdersTab(ManufacturingController controller) {
-        this.controller = controller;
-        controller.addListener(this);
-
+    public ProductionOrdersTab() {
         setLayout(new BorderLayout(0, 10));
-        setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         setBackground(Constants.BG_LIGHT);
+        setBorder(new EmptyBorder(Constants.PADDING_LARGE, Constants.PADDING_LARGE,
+                Constants.PADDING_LARGE, Constants.PADDING_LARGE));
 
-        UIHelper.styleTable(table);
-        add(new JScrollPane(table), BorderLayout.CENTER);
-        add(buildActions(), BorderLayout.SOUTH);
-
-        refresh();
+        add(buildHeader(), BorderLayout.NORTH);
+        add(buildBody(), BorderLayout.CENTER);
+        
+        refreshData();
     }
 
-    private JPanel buildActions() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        p.setOpaque(false);
+    private JPanel buildHeader() {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
 
-        JButton create = UIHelper.createPrimaryButton("New Order");
-        create.addActionListener(e -> openCreateDialog());
+        JPanel titles = new JPanel();
+        titles.setOpaque(false);
+        titles.setLayout(new BoxLayout(titles, BoxLayout.Y_AXIS));
 
-        JButton cancel = UIHelper.createSecondaryButton("Cancel Selected");
-        cancel.addActionListener(e -> {
-            int r = table.getSelectedRow();
-            if (r < 0) { UIHelper.showError(this, "Select an order first."); return; }
-            String orderId = (String) model.getValueAt(r, 0);
-            if (UIHelper.confirmDanger(this, "Cancel production order " + orderId + "?")) {
-                controller.cancelProductionOrder(this, orderId, this::refresh);
-            }
+        JLabel titleLabel = new JLabel("Production Orders");
+        titleLabel.setFont(Constants.FONT_SUBTITLE);
+        titleLabel.setForeground(Constants.TEXT_PRIMARY);
+        titleLabel.setAlignmentX(LEFT_ALIGNMENT);
+
+        JLabel subtitleLabel = new JLabel("Release, track, and close shop-floor production orders.");
+        subtitleLabel.setFont(Constants.FONT_SMALL);
+        subtitleLabel.setForeground(Constants.TEXT_SECONDARY);
+        subtitleLabel.setAlignmentX(LEFT_ALIGNMENT);
+        
+        titles.add(titleLabel);
+        titles.add(Box.createVerticalStrut(2));
+        titles.add(subtitleLabel);
+
+        header.add(titles, BorderLayout.WEST);
+        return header;
+    }
+
+    private JPanel buildBody() {
+        JPanel body = new JPanel(new BorderLayout(0, 10));
+        body.setBackground(Constants.BG_WHITE);
+        body.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(225, 228, 232), 1, true),
+                new EmptyBorder(14, 14, 14, 14)));
+
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        toolbar.setOpaque(false);
+        
+        JButton createBtn = UIHelper.createSecondaryButton("Create Order");
+        createBtn.addActionListener(e -> {
+            AddProductionOrderDialog dialog = new AddProductionOrderDialog(SwingUtilities.getWindowAncestor(this));
+            dialog.setVisible(true);
+            if (dialog.isAdded()) refreshData();
         });
 
-        JButton refresh = UIHelper.createSecondaryButton("Refresh");
-        refresh.addActionListener(e -> refresh());
+        JButton cancelBtn = UIHelper.createDangerButton("Cancel Order");
+        cancelBtn.addActionListener(e -> cancelSelectedOrder());
+        
+        JButton refreshBtn = UIHelper.createSecondaryButton("Refresh");
+        refreshBtn.addActionListener(e -> refreshData());
 
-        p.add(create); p.add(cancel); p.add(refresh);
-        return p;
+        toolbar.add(createBtn);
+        toolbar.add(cancelBtn);
+        toolbar.add(refreshBtn);
+        
+        body.add(toolbar, BorderLayout.NORTH);
+
+        String[] columns = {"Order #", "Product Name", "BOM ID", "Quantity (Produced/Total)", "Start Date", "Due Date", "Status"};
+        tableModel = new DefaultTableModel(new Object[0][0], columns) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
+        orderTable = new JTable(tableModel);
+        orderTable.setFont(Constants.FONT_REGULAR);
+        orderTable.setRowHeight(26);
+        orderTable.setGridColor(new Color(230, 232, 236));
+        orderTable.setFillsViewportHeight(true);
+
+        JTableHeader header = orderTable.getTableHeader();
+        header.setFont(Constants.FONT_HEADING);
+        header.setBackground(Constants.PRIMARY_COLOR);
+        header.setForeground(Constants.TEXT_LIGHT);
+        header.setReorderingAllowed(false);
+
+        body.add(new JScrollPane(orderTable), BorderLayout.CENTER);
+        return body;
     }
 
-    private void openCreateDialog() {
-        JTextField productId = new JTextField(12);
-        JTextField productName = new JTextField(14);
-        JTextField bomId = new JTextField(10);
-        JTextField qty = new JTextField("10", 6);
-        JComboBox<String> pri = new JComboBox<>(new String[]{
-                ProductionOrderDTO.PRI_LOW, ProductionOrderDTO.PRI_MEDIUM,
-                ProductionOrderDTO.PRI_HIGH, ProductionOrderDTO.PRI_URGENT});
-
-        JPanel form = new JPanel(new GridLayout(0, 2, 6, 6));
-        form.add(new JLabel("Product ID:"));   form.add(productId);
-        form.add(new JLabel("Product Name:")); form.add(productName);
-        form.add(new JLabel("BOM ID:"));       form.add(bomId);
-        form.add(new JLabel("Qty Planned:"));  form.add(qty);
-        form.add(new JLabel("Priority:"));     form.add(pri);
-
-        int ok = JOptionPane.showConfirmDialog(this, form, "New Production Order",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (ok != JOptionPane.OK_OPTION) return;
+    private void cancelSelectedOrder() {
+        int row = orderTable.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Select an order to cancel.");
+            return;
+        }
+        
+        int orderId = (int) tableModel.getValueAt(row, 0);
+        String status = (String) tableModel.getValueAt(row, 6);
+        
+        if ("Cancelled".equals(status)) {
+            JOptionPane.showMessageDialog(this, "Order is already cancelled.");
+            return;
+        }
+        
+        if ("In Assembly".equals(status) || "Completed".equals(status)) {
+            try {
+                throw new com.erp.exceptions.ProductionOrderCancellationBlockedException("Cannot cancel production order #" + orderId + " because one or more work orders are already In-Progress.");
+            } catch (com.erp.exceptions.ProductionOrderCancellationBlockedException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Cancellation Blocked", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        }
 
         try {
-            ProductionOrderDTO dto = new ProductionOrderDTO(
-                    "PO-" + System.currentTimeMillis() % 100000,
-                    productId.getText().trim(),
-                    productName.getText().trim(),
-                    bomId.getText().trim(),
-                    LocalDate.now(), LocalDate.now().plusDays(14),
-                    ProductionOrderDTO.PENDING,
-                    (String) pri.getSelectedItem(),
-                    Integer.parseInt(qty.getText().trim()));
-            controller.createProductionOrder(this, dto, created -> refresh());
-        } catch (NumberFormatException ex) {
-            UIHelper.showError(this, "Quantity must be a number.");
+            BOMService.getInstance().cancelProductionOrder(orderId);
+            JOptionPane.showMessageDialog(this, "Production Order Cancelled.");
+            refreshData();
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Failed: " + e.getMessage());
         }
     }
 
-    @Override public void refresh() { controller.loadProductionOrders(this); }
+    public void refreshData() {
+        tableModel.setRowCount(0);
+        try {
+            List<ProductionOrder> orders = BOMService.getInstance().getAllProductionOrders();
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
+            
+            java.util.Map<Integer, String> bomNames = new java.util.HashMap<>();
+            if (boms != null) {
+                for (BOM b : boms) {
+                    bomNames.put(b.getId(), b.getProductName());
+                }
+            }
+            
+            if (orders != null) {
+                for (ProductionOrder o : orders) {
+                    int bomId = o.getBomId();
+                    String productName = bomNames.getOrDefault(bomId, "Unknown");
+                    
+                    int orderQty = o.getOrderQuantity();
+                    int prodQty = o.getProducedQuantity();
+                    String qtyStr = prodQty + "/" + orderQty;
 
-    @Override
-    public void onProductionOrdersLoaded(List<ProductionOrderDTO> list) {
-        model.setRowCount(0);
-        for (ProductionOrderDTO o : list) {
-            model.addRow(new Object[]{
-                    o.getOrderId(), o.getProductName(), o.getBomId(),
-                    o.getStatus(), o.getPriority(),
-                    o.getPlannedStartDate() + " \u2192 " + o.getPlannedEndDate(),
-                    o.getQtyProduced() + "/" + o.getQtyPlanned()
-            });
+                    tableModel.addRow(new Object[]{
+                            o.getId(),
+                            productName,
+                            bomId,
+                            qtyStr,
+                            o.getStartDate() == null ? "" : o.getStartDate(),
+                            o.getDueDate() == null ? "" : o.getDueDate(),
+                            o.getOrderStatus()
+                    });
+                }
+            }
+        } catch (Exception e) {
+            // Ignore if DB is not ready
         }
     }
-
-    @Override public void onMfgEntityChanged(Object e) { refresh(); }
 }

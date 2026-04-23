@@ -1,6 +1,6 @@
 package com.erp.view.components;
 
-import com.erp.session.UserSession;
+import com.erp.service.UIAuthenticator;
 import com.erp.util.Constants;
 
 import javax.swing.*;
@@ -11,8 +11,7 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * 24px persistent status ribbon at the bottom of the application shell.
- * Shows brand slogan, session identity, plant, fiscal year, last-synced time.
- * Refreshes once a minute.
+ * Displays authenticated user info, plant, fiscal year, and time.
  */
 public class StatusBar extends JPanel {
 
@@ -20,8 +19,10 @@ public class StatusBar extends JPanel {
 
     private final JLabel label = new JLabel();
     private final Timer timer;
+    private final UIAuthenticator.AuthResult user;
 
-    public StatusBar() {
+    public StatusBar(UIAuthenticator.AuthResult user) {
+        this.user = user;
         setLayout(new BorderLayout());
         setBackground(Constants.TATA_NAVY);
         setBorder(new EmptyBorder(4, 18, 4, 18));
@@ -38,15 +39,12 @@ public class StatusBar extends JPanel {
     }
 
     public void refresh() {
-        UserSession s = UserSession.getInstance();
-        String who = s.isValid() ? s.getDisplayName() : "Guest";
-        String role = s.isValid() ? s.getRole() : "-";
+        String userInfo = user != null ? user.displayName + " (" + user.role + ")" : "Guest";
         String now = LocalTime.now().format(HH_MM);
         label.setText(Constants.APP_SLOGAN
-                + "   \u00B7   Logged in as " + who
-                + "   \u00B7   " + role
-                + "   \u00B7   " + Constants.PLANT_NAME
-                + "   \u00B7   " + Constants.FISCAL_YEAR
-                + "   \u00B7   Last synced: " + now);
+                + "   ·   Logged in: " + userInfo
+                + "   ·   " + Constants.PLANT_NAME
+                + "   ·   " + Constants.FISCAL_YEAR
+                + "   ·   " + now);
     }
 }

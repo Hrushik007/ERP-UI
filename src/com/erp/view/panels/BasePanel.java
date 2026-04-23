@@ -4,6 +4,7 @@ import com.erp.util.Constants;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.Dimension;
 
 /**
  * BasePanel is an abstract class that all module panels extend.
@@ -32,11 +33,10 @@ public abstract class BasePanel extends JPanel {
     protected String panelTitle;
     protected JPanel headerPanel;
     protected JPanel contentPanel;
+    private boolean initialized;
 
     /**
-     * Constructor sets up the common panel structure.
-     * Note: Constructor calls abstract methods - this works because
-     * the subclass's overridden methods will be called.
+     * Constructor sets up the common panel structure only.
      *
      * @param title The title displayed at the top of the panel
      */
@@ -57,12 +57,27 @@ public abstract class BasePanel extends JPanel {
                 Constants.PADDING_LARGE, Constants.PADDING_LARGE, Constants.PADDING_LARGE));
 
         // Add to this panel
+        JScrollPane scroll = new JScrollPane(contentPanel);
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         add(headerPanel, BorderLayout.NORTH);
-        add(contentPanel, BorderLayout.CENTER);
+        add(scroll, BorderLayout.CENTER);
+    }
 
-        // Call abstract methods that subclasses must implement
+    /**
+     * Safe one-time lifecycle initialization for subclasses.
+     *
+     * This avoids calling overridable methods from the base constructor,
+     * which can run before subclass fields are initialized.
+     */
+    public final void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
         initializeComponents();
         layoutComponents();
+        initialized = true;
     }
 
     /**

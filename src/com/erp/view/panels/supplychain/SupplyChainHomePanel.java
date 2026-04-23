@@ -1,6 +1,5 @@
 package com.erp.view.panels.supplychain;
 
-import com.erp.controller.SupplyChainController;
 import com.erp.util.Constants;
 import com.erp.view.panels.BasePanel;
 
@@ -9,14 +8,9 @@ import java.awt.*;
 
 /**
  * PATTERN: Composite (Structural) — tabbed Supply Chain / Purchasing module.
- *
- * All tabs share a single {@link SupplyChainController}.
  */
 public class SupplyChainHomePanel extends BasePanel {
 
-    public interface Refreshable { void refresh(); }
-
-    private final SupplyChainController controller = new SupplyChainController();
     private JTabbedPane tabs;
 
     public SupplyChainHomePanel() { super("Supply Chain"); }
@@ -30,19 +24,14 @@ public class SupplyChainHomePanel extends BasePanel {
     @Override
     protected void layoutComponents() {
         contentPanel.setLayout(new BorderLayout());
-        tabs.addTab("Dashboard",        new SCMDashboardTab(controller));
-        tabs.addTab("Inventory",        new InventoryTab(controller));
-        tabs.addTab("Purchase Orders",  new PurchaseOrdersTab(controller));
-        tabs.addTab("Suppliers",        new SuppliersTab(controller));
-        tabs.addTab("Goods Receipts",   new GoodsReceiptTab(controller));
-        tabs.addTab("Shipments",        new ShipmentsTab(controller));
-        tabs.addTab("Invoices",         new InvoicesTab(controller));
+        tabs.addTab("Dashboard",        new SCMDashboardTab());
+        tabs.addTab("Inventory",        new InventoryTab());
+        tabs.addTab("Purchase Orders",  new PurchaseOrdersTab());
+        tabs.addTab("Suppliers",        new SuppliersTab());
+        tabs.addTab("Goods Receipts",   new GoodsReceiptTab());
+        tabs.addTab("Shipments",        new ShipmentsTab());
+        tabs.addTab("Invoices",         new InvoicesTab());
+        tabs.addTab("Requisitions",     new RequisitionsTab());
         contentPanel.add(tabs, BorderLayout.CENTER);
-    }
-
-    @Override
-    public void refreshData() {
-        Component sel = tabs.getSelectedComponent();
-        if (sel instanceof Refreshable) ((Refreshable) sel).refresh();
     }
 }

@@ -1,41 +1,26 @@
 package com.erp.view.panels;
 
-import com.erp.controller.HRController;
-import com.erp.controller.OrderController;
-import com.erp.model.dto.EmployeeDTO;
-import com.erp.model.dto.OrderDTO;
-import com.erp.session.UserSession;
 import com.erp.util.Constants;
 import com.erp.view.components.DashboardCard;
 import com.erp.view.components.FakeChartPanel;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
- * Cross-module dashboard: surfaces live stats from the two deep-integrated
- * workflows (Orders + HR) plus a greeting card for the active session.
+ * Cross-subsystem executive dashboard (UI-only mockup).
  */
-public class IntegratedDashboardPanel extends BasePanel
-        implements OrderController.OrderListener, HRController.HRListener {
+public class IntegratedDashboardPanel extends BasePanel {
 
-    private final OrderController orderController = new OrderController();
-    private final HRController hrController = new HRController();
+    private final DashboardCard ordersTotal     = new DashboardCard("Automation Orders", "-", "all pipelines",    Constants.PRIMARY_COLOR);
+    private final DashboardCard ordersPending   = new DashboardCard("Workflow Ready",    "-", "approved orders",  Constants.WARNING_COLOR);
+    private final DashboardCard ordersDelivered = new DashboardCard("Delivered",         "-", "fulfilled",        Constants.SUCCESS_COLOR);
+    private final DashboardCard openPo          = new DashboardCard("Open Purchase Orders", "-", "procurement",   Constants.ACCENT_COLOR);
+    private final DashboardCard lowStock        = new DashboardCard("Low Stock",         "-", "reorder needed",   Constants.PRIMARY_DARK);
+    private final DashboardCard mfgInProgress   = new DashboardCard("Mfg In Progress",   "-", "shop floor",       Constants.DANGER_COLOR);
 
-    private final DashboardCard ordersTotal   = new DashboardCard("Orders", "-", "all pipelines", Constants.PRIMARY_COLOR);
-    private final DashboardCard ordersPending = new DashboardCard("Pending Approvals", "-", "needs action", Constants.WARNING_COLOR);
-    private final DashboardCard ordersDelivered = new DashboardCard("Delivered", "-", "fulfilled", Constants.SUCCESS_COLOR);
-    private final DashboardCard workforce     = new DashboardCard("Workforce", "-", "active employees", Constants.ACCENT_COLOR);
-    private final DashboardCard newJoiners    = new DashboardCard("New Joiners", "-", "onboarding", Constants.PRIMARY_DARK);
-    private final DashboardCard pendingLeave  = new DashboardCard("Pending Leave", "-", "HR to review", Constants.DANGER_COLOR);
-
-    private final FakeChartPanel ordersChart = new FakeChartPanel(
-            "Order Pipeline", FakeChartPanel.Style.BAR);
-    private final FakeChartPanel hrChart = new FakeChartPanel(
-            "Workforce by Department", FakeChartPanel.Style.BAR);
+    private final FakeChartPanel ordersChart = new FakeChartPanel("Order Pipeline",       FakeChartPanel.Style.BAR);
+    private final FakeChartPanel mfgChart    = new FakeChartPanel("Manufacturing Status", FakeChartPanel.Style.BAR);
 
     private JLabel greetingLabel;
 
@@ -43,8 +28,6 @@ public class IntegratedDashboardPanel extends BasePanel
 
     @Override
     protected void initializeComponents() {
-        orderController.addListener(this);
-        hrController.addListener(this);
         greetingLabel = new JLabel();
         greetingLabel.setFont(Constants.FONT_SUBTITLE);
         greetingLabel.setForeground(Constants.TEXT_PRIMARY);
@@ -60,7 +43,7 @@ public class IntegratedDashboardPanel extends BasePanel
                 BorderFactory.createLineBorder(new Color(225, 228, 232)),
                 BorderFactory.createEmptyBorder(14, 18, 14, 18)));
         hero.add(greetingLabel, BorderLayout.WEST);
-        JLabel hint = new JLabel("Live view across Order Processing and HR Management");
+        JLabel hint = new JLabel("Live view across every ERP module");
         hint.setFont(Constants.FONT_SMALL);
         hint.setForeground(Constants.TEXT_SECONDARY);
         hero.add(hint, BorderLayout.EAST);
@@ -68,11 +51,11 @@ public class IntegratedDashboardPanel extends BasePanel
         JPanel stats = new JPanel(new GridLayout(2, 3, 10, 10));
         stats.setOpaque(false);
         stats.add(ordersTotal); stats.add(ordersPending); stats.add(ordersDelivered);
-        stats.add(workforce); stats.add(newJoiners); stats.add(pendingLeave);
+        stats.add(openPo); stats.add(lowStock); stats.add(mfgInProgress);
 
         JPanel charts = new JPanel(new GridLayout(1, 2, 10, 0));
         charts.setOpaque(false);
-        charts.add(ordersChart); charts.add(hrChart);
+        charts.add(ordersChart); charts.add(mfgChart);
 
         JPanel north = new JPanel(new BorderLayout(0, 10));
         north.setOpaque(false);
@@ -86,49 +69,6 @@ public class IntegratedDashboardPanel extends BasePanel
 
     @Override
     public void refreshData() {
-        UserSession s = UserSession.getInstance();
-        String who = s.isValid() ? s.getDisplayName() + " (" + s.getRole() + ")" : "Guest";
-        greetingLabel.setText("Welcome back, " + who);
-
-        orderController.loadOrders(this, null, null);
-        orderController.loadStats(this);
-        hrController.loadStats(this);
-        hrController.loadEmployees(this, null, null, null);
-    }
-
-    // ===== OrderListener =====
-
-    @Override
-    public void onOrdersLoaded(List<OrderDTO> orders) {
-        Map<String, Integer> byStatus = new HashMap<>();
-        for (OrderDTO o : orders) {
-            String s = o.getStatus() == null ? "Other" : o.getStatus();
-            byStatus.merge(s, 1, Integer::sum);
-        }
-        ordersChart.setData(byStatus);
-    }
-
-    @Override
-    public void onStatsLoaded(Map<String, Integer> stats) {
-        boolean isHR = stats.containsKey("active") || stats.containsKey("newJoiners");
-        if (isHR) {
-            workforce.setValue(String.valueOf(stats.getOrDefault("active", 0)));
-            newJoiners.setValue(String.valueOf(stats.getOrDefault("newJoiners", 0)));
-            pendingLeave.setValue(String.valueOf(stats.getOrDefault("pendingLeave", 0)));
-        } else {
-            ordersTotal.setValue(String.valueOf(stats.getOrDefault("total", 0)));
-            ordersPending.setValue(String.valueOf(stats.getOrDefault("pending", 0)));
-            ordersDelivered.setValue(String.valueOf(stats.getOrDefault("delivered", 0)));
-        }
-    }
-
-    // ===== HRListener =====
-
-    @Override
-    public void onEmployeesLoaded(List<EmployeeDTO> list) {
-        Map<String, Integer> byDept = new HashMap<>();
-        for (EmployeeDTO e : list)
-            byDept.merge(e.getDepartment() == null ? "Other" : e.getDepartment(), 1, Integer::sum);
-        hrChart.setData(byDept);
+        greetingLabel.setText("Welcome back");
     }
 }

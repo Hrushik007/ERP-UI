@@ -4,6 +4,7 @@ import com.erp.view.panels.BasePanel;
 import com.erp.view.panels.IntegratedDashboardPanel;
 import com.erp.view.panels.facade.AccountingFacadePanel;
 import com.erp.view.panels.facade.AnalyticsFacadePanel;
+import com.erp.view.panels.AutomationHomePanel;
 import com.erp.view.panels.facade.AutomationFacadePanel;
 import com.erp.view.panels.facade.BIFacadePanel;
 import com.erp.view.panels.facade.CRMFacadePanel;
@@ -46,7 +47,7 @@ public final class PanelRegistry {
         register("analytics",     AnalyticsFacadePanel::new);
         register("bi",            BIFacadePanel::new);
         register("marketing",     MarketingFacadePanel::new);
-        register("automation",    AutomationFacadePanel::new);
+        register("automation",    AutomationHomePanel::new);
     }
 
     private PanelRegistry() {}

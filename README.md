@@ -1,12 +1,22 @@
 # ERP-UI — Tata Motors Enterprise Resource Planning (Swing)
 
-A Java Swing ERP front-end covering 15 modules. Four modules are wired end-to-end
+A Java Swing ERP front-end covering 15 modules. **Five modules** are wired end-to-end
 against a mock backend (`MockUIService`): **Orders**, **HR**, **Manufacturing**,
-**Supply Chain**. The remaining 11 are facade placeholders.
+**Supply Chain**, and **Automation**. The remaining 10 are facade placeholders.
 
-This README is the integration contract between the UI and the four backend
-subsystem teams. Each team owns one of the deeply integrated modules and may
-replace the mock with a real transport without touching any UI code.
+This README is the integration contract between the UI and the backend subsystem teams.
+Each team owns one of the deeply integrated modules and may replace the mock with a
+real transport without touching any UI code.
+
+### Module navigation structure
+
+| Module | Top-level Tabs | Inner Tabs |
+|--------|----------------|-----------|
+| **Order Processing** | Dashboard · Orders · Inventory · Reports | Orders → side nav: New Order / View Orders / Customers / Billing / Delivery / Payments; View Orders → All Orders / Pending / Approved / Rejected / Shipped / Delivered / Cancelled |
+| **HR Management** | Employee Info Management · Recruitment & ATS · Onboarding Management · Payroll Management · Attendance & Leave Management · Performance Management · Workforce Planning & Budgeting · Benefits Administration | Attendance & Leave → Leave / Attendance; Benefits Administration → Benefits / Claims |
+| **Manufacturing** | Dashboard · Assembly Lines · Production Orders · BOM Explorer · Routing · Work Centers · Quality Control · Planning (MPS/CRP) · Shop Floor | — |
+| **Supply Chain** | Dashboard · Inventory · Purchase Orders · Suppliers · Goods Receipts · Shipments · Invoices · Requisitions | — |
+| **Automation** | Dashboard · Expenses · Reports | — |
 
 ---
 
@@ -21,11 +31,12 @@ ERPApplication (main)
         ▼
    MainFrame ──► PanelRegistry.create(command)    # OCP — no switch in MainFrame
         │
-        ├── OrdersHomePanel      (tabs → OrderController   → IUIService)
-        ├── HRHomePanel          (tabs → HRController      → IUIService)
-        ├── ManufacturingHomePanel (tabs → ManufacturingController → IUIService)
-        ├── SupplyChainHomePanel (tabs → SupplyChainController → IUIService)
-        └── …facade placeholders
+        ├── OrdersHomePanel       (4 tabs → OrderController        → IUIService)
+        ├── HRHomePanel           (8 tabs → HRController           → IUIService)
+        ├── ManufacturingHomePanel(9 tabs → ManufacturingController → IUIService)
+        ├── SupplyChainHomePanel  (8 tabs → SupplyChainController   → IUIService)
+        ├── AutomationHomePanel   (3 tabs → OrderController         → IUIService)
+        └── …facade placeholders (10 static modules)
 ```
 
 Key rules for UI code:
@@ -34,9 +45,10 @@ Key rules for UI code:
   a `SwingWorker` (the `submit(owner, work, onOk, retry)` helper). Views stay
   responsive even on multi-second IO.
 * **`BasePanel` lifecycle** — each module panel extends `BasePanel`, which
-  calls `initializeComponents()` and `layoutComponents()` in its constructor
-  (Template Method). `refreshData()` is invoked every time the panel is
-  displayed.
+   builds only the common shell in the constructor. Module-specific UI is
+   initialized lazily via `ensureInitialized()` (called by `MainFrame` before
+   a panel is shown) so subclass fields are fully ready before tab/content
+   construction. `refreshData()` is invoked every time the panel is displayed.
 * **Tab `Refreshable` pattern** — each tabbed home panel (`OrdersHomePanel`,
   `HRHomePanel`, `ManufacturingHomePanel`, `SupplyChainHomePanel`) routes
   `refreshData()` to the currently-selected tab via a nested `Refreshable`
@@ -179,17 +191,24 @@ error/warning dialog only. Backend transport failures should always be
 
 ### 5.2 Team Orders — `OrdersEndpoints` (`orders/…`)
 
-| Constant             | Verb  | Params                                     | Returns                  |
-|----------------------|-------|--------------------------------------------|--------------------------|
-| `ORDERS_LIST`        | fetch | `status`, `q` (optional)                   | `List<OrderDTO>`         |
-| `ORDERS_STATS`       | fetch | –                                          | `Map<String, Integer>`   |
-| `ORDERS_CREATE`      | send  | `OrderDTO`                                 | `OrderDTO`               |
-| `ORDERS_APPROVE`     | send  | `orderId` (String)                         | `OrderDTO`               |
-| `ORDERS_REJECT`      | send  | `orderId`                                  | `OrderDTO`               |
-| `ORDERS_REVISION`    | send  | `orderId`                                  | `OrderDTO`               |
-| `ORDERS_SHIP`        | send  | `{orderId, courier, tracking}`             | `OrderDTO`               |
-| `ORDERS_PAY`         | send  | `{orderId, amount, simulateFail}`          | `OrderDTO`               |
-| `ORDERS_CANCEL`      | send  | `{orderId, reason}`                        | `OrderDTO`               |
+| Constant                          | Verb  | Params                                     | Returns                         |
+|-----------------------------------|-------|--------------------------------------------|---------------------------------|
+| `ORDERS_LIST`                     | fetch | `status`, `q` (optional)                   | `List<OrderDTO>`                |
+| `ORDERS_PRODUCT_CATALOG`          | fetch | –                                          | `List<PartDTO>`                 |
+| `ORDERS_STATS`                    | fetch | –                                          | `Map<String, Integer>`          |
+| `ORDERS_EXPENSE_LIST`             | fetch | –                                          | `List<Map<String, Object>>`     |
+| `ORDERS_REPORT_SUMMARY`           | fetch | –                                          | `Map<String, Object>`           |
+| `ORDERS_CUSTOMER_INVOICE_LIST`    | fetch | –                                          | `List<Map<String, Object>>`     |
+| `ORDERS_CREATE`                   | send  | `OrderDTO`                                 | `OrderDTO`                      |
+| `ORDERS_APPROVE`                  | send  | `orderId` (String)                         | `OrderDTO`                      |
+| `ORDERS_REJECT`                   | send  | `orderId`                                  | `OrderDTO`                      |
+| `ORDERS_REVISION`                 | send  | `orderId`                                  | `OrderDTO`                      |
+| `ORDERS_REVISION_UPDATE`          | send  | `OrderDTO`                                 | `OrderDTO`                      |
+| `ORDERS_SHIP`                     | send  | `{orderId, courier, tracking}`             | `OrderDTO`                      |
+| `ORDERS_PAY`                      | send  | `{orderId, amount, simulateFail}`          | `OrderDTO`                      |
+| `ORDERS_CANCEL`                   | send  | `{orderId, reason}`                        | `OrderDTO`                      |
+| `ORDERS_EXPENSE_CREATE`           | send  | `Map<String, Object>`                      | `Map<String, Object>`           |
+| `ORDERS_CUSTOMER_INVOICE_GENERATE`| send | `{orderId}`                                | `Map<String, Object>`           |
 
 ### 5.3 Team Manufacturing — `ManufacturingEndpoints` (`mfg/…`)
 
@@ -280,3 +299,72 @@ Demo credentials (defined in `MockUIService`):
 | `ServiceLocator`                                   | Service Locator (GoF-adjacent) — single replaceable seam |
 | `*DTO` classes                                     | DTO (data-carrier)                                     |
 | `SwingWorker submit()` helper in each controller   | Asynchronous Producer-Consumer (keeps EDT responsive)  |
+
+---
+
+## 8. Implementation guide for future subsystem integrations
+
+Use this runbook when integrating a new subsystem (example: `quality`,
+`fleet`, `procurement-analytics`) without breaking existing modules.
+
+### 8.1 Define the subsystem contract first
+
+1. Create endpoint namespace interface:
+   * `src/com/erp/integration/endpoints/<Subsystem>Endpoints.java`
+   * Keep constants as `<prefix>/<action>` (for routing by prefix).
+2. Add DTOs under `src/com/erp/model/dto/`.
+3. Add business exceptions as factory methods in
+   `src/com/erp/exception/BusinessRuleException.java`.
+
+### 8.2 Build integration in vertical slices
+
+1. Add controller:
+   * `src/com/erp/controller/<Subsystem>Controller.java`
+   * Implement listener interface with default methods.
+   * Route all calls through `submit(...)` to preserve EDT responsiveness.
+2. Add tabs and home panel:
+   * `src/com/erp/view/panels/<subsystem>/...`
+   * Make each tab implement `<Subsystem>HomePanel.Refreshable`.
+   * Share one controller instance across all tabs in the home panel.
+3. Register module in panel registry:
+   * update `src/com/erp/view/PanelRegistry.java`.
+4. Expose module in sidebar and RBAC:
+   * update `src/com/erp/view/components/Sidebar.java`.
+   * update `src/com/erp/session/RoleAccess.java`.
+
+### 8.3 Backend transport integration
+
+1. Extend your `IUIService` implementation to route the new endpoint prefix.
+2. Add mock handlers in `src/com/erp/integration/MockUIService.java` for:
+   * list/stats fetches,
+   * create/update actions,
+   * failure scenarios (`IntegrationException`, `BusinessRuleException`).
+3. If needed, add adapter mappings in
+   `src/com/erp/integration/adapter/DTOAdapter.java`.
+
+### 8.4 UI lifecycle and navigation safety rules
+
+1. Never build tab content from `BasePanel` constructor assumptions.
+2. Keep module construction safe with `BasePanel.ensureInitialized()`.
+3. In navigation, always follow order:
+   * create panel,
+   * `ensureInitialized()`,
+   * add to card layout,
+   * `refreshData()`,
+   * show card.
+4. Sidebar menu items must dispatch click events from both row container and
+   inner label/component to avoid "dead click" behavior.
+
+### 8.5 Completion checklist (must pass before merge)
+
+1. Compile check:
+   * `javac -d out -sourcepath src src/com/erp/ERPApplication.java`
+2. Runtime smoke check (`./run.sh`):
+   * login,
+   * switch repeatedly between Dashboard/Orders/HR/Manufacturing/Supply Chain,
+   * verify card content changes every click,
+   * verify each integrated module loads at least one dataset.
+3. Failure-path check:
+   * trigger one mocked integration failure and confirm retry dialog appears.
+4. RBAC check:
+   * verify at least two roles with/without access to the new module.

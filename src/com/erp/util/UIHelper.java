@@ -34,20 +34,44 @@ public final class UIHelper {
         button.setFont(Constants.FONT_BUTTON);
         button.setForeground(Constants.TEXT_LIGHT);
         button.setBackground(Constants.PRIMARY_COLOR);
+        button.setOpaque(true);
+        button.setContentAreaFilled(true);
         button.setFocusPainted(false);
         button.setBorderPainted(false);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         button.setPreferredSize(new Dimension(120, 40));
 
-        // Add hover effect
         button.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
+            @Override public void mouseEntered(java.awt.event.MouseEvent evt) {
                 button.setBackground(Constants.PRIMARY_DARK);
             }
-            @Override
-            public void mouseExited(java.awt.event.MouseEvent evt) {
+            @Override public void mouseExited(java.awt.event.MouseEvent evt) {
                 button.setBackground(Constants.PRIMARY_COLOR);
+            }
+        });
+
+        return button;
+    }
+
+    public static JButton createDangerButton(String text) {
+        JButton button = new JButton(text);
+        button.setFont(Constants.FONT_BUTTON);
+        button.setForeground(Constants.TEXT_LIGHT);
+        button.setBackground(Constants.DANGER_COLOR);
+        button.setOpaque(true);
+        button.setContentAreaFilled(true);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setPreferredSize(new Dimension(120, 40));
+
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            final Color darker = Constants.DANGER_COLOR.darker();
+            @Override public void mouseEntered(java.awt.event.MouseEvent evt) {
+                button.setBackground(darker);
+            }
+            @Override public void mouseExited(java.awt.event.MouseEvent evt) {
+                button.setBackground(Constants.DANGER_COLOR);
             }
         });
 
@@ -64,6 +88,8 @@ public final class UIHelper {
         button.setFont(Constants.FONT_BUTTON);
         button.setForeground(Constants.PRIMARY_COLOR);
         button.setBackground(Constants.BG_WHITE);
+        button.setOpaque(true);
+        button.setContentAreaFilled(true);
         button.setFocusPainted(false);
         button.setBorder(BorderFactory.createLineBorder(Constants.PRIMARY_COLOR, 2));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -259,6 +285,8 @@ public final class UIHelper {
         table.setShowGrid(true);
         table.getTableHeader().setFont(Constants.FONT_REGULAR);
         table.getTableHeader().setReorderingAllowed(false);
+
+        table.getTableHeader().setPreferredSize(new Dimension(0, 32));
 
         // Custom header renderer for proper colors
         table.getTableHeader().setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {

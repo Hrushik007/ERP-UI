@@ -1,6 +1,5 @@
 package com.erp.view.panels.orders;
 
-import com.erp.controller.OrderController;
 import com.erp.util.Constants;
 import com.erp.view.panels.BasePanel;
 
@@ -8,12 +7,10 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- * Tabbed container for all Order Processing sub-panels.
- * Shares a single OrderController so state stays consistent across tabs.
+ * PATTERN: Composite (Structural) — top-level Orders module.
  */
 public class OrdersHomePanel extends BasePanel {
 
-    private final OrderController controller = new OrderController();
     private JTabbedPane tabs;
 
     public OrdersHomePanel() { super("Order Processing"); }
@@ -27,20 +24,10 @@ public class OrdersHomePanel extends BasePanel {
     @Override
     protected void layoutComponents() {
         contentPanel.setLayout(new BorderLayout());
-        tabs.addTab("Dashboard",    new OrderDashboardPanel(controller));
-        tabs.addTab("New Order",    new OrderEntryPanel(controller));
-        tabs.addTab("Approvals",    new OrderApprovalPanel(controller));
-        tabs.addTab("Delivery",     new OrderDeliveryPanel(controller));
-        tabs.addTab("Payment",      new OrderPaymentPanel(controller));
-        tabs.addTab("Cancellation", new OrderCancellationPanel(controller));
+        tabs.addTab("Dashboard", new OrderDashboardPanel());
+        tabs.addTab("Orders",    new OrdersSubPanel());
+        tabs.addTab("Inventory", new OrdersInventoryPanel());
+        tabs.addTab("Reports",   new ReportingAnalyticsTab());
         contentPanel.add(tabs, BorderLayout.CENTER);
     }
-
-    @Override
-    public void refreshData() {
-        Component sel = tabs.getSelectedComponent();
-        if (sel instanceof Refreshable) ((Refreshable) sel).refresh();
-    }
-
-    public interface Refreshable { void refresh(); }
 }

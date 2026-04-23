@@ -1,14 +1,7 @@
 package com.erp.view;
 
-import com.erp.exception.AuthException;
-import com.erp.exception.ERPException;
-import com.erp.exception.ExceptionHandler;
-import com.erp.exception.IntegrationException;
-import com.erp.integration.IUIService;
-import com.erp.integration.ServiceLocator;
-import com.erp.integration.endpoints.AuthEndpoints;
-import com.erp.model.dto.UserSessionDTO;
-import com.erp.session.UserSession;
+import com.erp.service.MockUIAuthenticator;
+import com.erp.service.UIAuthenticator;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
 
@@ -18,18 +11,11 @@ import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Split-screen login frame.
- *
- *  - Left:  credentials form (username, password, login button, status)
- *           Lockout after 3 invalid attempts for 30 seconds.
- *  - Right: clickable role cards (Admin, Manager, Employee, HR, Sales).
- *
- * Authentication flows through IUIService.sendData("auth/login", ...).
+ * Split-screen login frame. Validates credentials against erp_ui_auth.app_users table.
+ * Currently uses MockUIAuthenticator; replace with RDSUIAuthenticator when database is ready.
  */
 public class LoginFrame extends JFrame {
 
@@ -48,7 +34,7 @@ public class LoginFrame extends JFrame {
     private Timer lockoutTimer;
     private int lockoutRemaining;
 
-    private final IUIService ui = ServiceLocator.getUIService();
+    private final UIAuthenticator authenticator = new MockUIAuthenticator();
 
     public LoginFrame() {
         setTitle(Constants.APP_NAME + " - Login");
@@ -74,8 +60,6 @@ public class LoginFrame extends JFrame {
         return root;
     }
 
-    // -------------------- LEFT: credentials --------------------
-
     private JPanel buildLeftForm() {
         JPanel p = new JPanel();
         p.setBackground(Constants.BG_WHITE);
@@ -87,7 +71,7 @@ public class LoginFrame extends JFrame {
         brand.setForeground(Constants.TATA_NAVY);
         brand.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel tagline = new JLabel("Enterprise Resource Planning  \u00B7  " + Constants.APP_SLOGAN);
+        JLabel tagline = new JLabel("Enterprise Resource Planning  ·  " + Constants.APP_SLOGAN);
         tagline.setFont(Constants.FONT_REGULAR);
         tagline.setForeground(Constants.TATA_GOLD.darker());
         tagline.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -131,9 +115,7 @@ public class LoginFrame extends JFrame {
         lockoutLabel.setForeground(Constants.DANGER_COLOR);
         lockoutLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel hint = new JLabel("<html><span style='color:#7F8C8D'>Credentials: admin/admin123, "
-                + "manager/manager123, emp001/emp123, hr_admin/hr123, sales01/sales123, "
-                + "mfg_admin/mfg123, scm_admin/scm123</span></html>");
+        JLabel hint = new JLabel("<html><span style='color:#7F8C8D'>Connected to app_users table in erp_ui_auth database.</span></html>");
         hint.setFont(Constants.FONT_SMALL);
         hint.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -168,8 +150,6 @@ public class LoginFrame extends JFrame {
         return l;
     }
 
-    // -------------------- RIGHT: role cards --------------------
-
     private JPanel buildRightRoles() {
         JPanel p = new JPanel();
         p.setBackground(new Color(247, 250, 254));
@@ -192,13 +172,13 @@ public class LoginFrame extends JFrame {
         p.add(Box.createVerticalStrut(20));
 
         String[][] roles = {
-                {UserSession.ROLE_ADMIN,    "admin",     "Full access across every module",   "A"},
-                {UserSession.ROLE_MANAGER,  "manager",   "Approve orders, view reports",      "M"},
-                {UserSession.ROLE_EMPLOYEE, "emp001",    "Assembly-line & daily operations",  "E"},
-                {UserSession.ROLE_HR,       "hr_admin",  "People, payroll, onboarding",       "H"},
-                {UserSession.ROLE_SALES,    "sales01",   "Dealers, orders and customers",     "S"},
-                {UserSession.ROLE_MFG,      "mfg_admin", "Shop floor, BOMs, production runs", "F"},
-                {UserSession.ROLE_SCM,      "scm_admin", "Suppliers, POs, GRNs, invoices",    "C"},
+                {"Admin",        "admin",     "Full access across every module",   "A"},
+                {"Manager",      "manager",   "Approve orders, view reports",      "M"},
+                {"Employee",     "emp001",    "Assembly-line & daily operations",  "E"},
+                {"HR",           "hr_admin",  "People, payroll, onboarding",       "H"},
+                {"Sales",        "sales01",   "Dealers, orders and customers",     "S"},
+                {"Manufacturing","mfg_admin", "Shop floor, BOMs, production runs", "F"},
+                {"SupplyChain",  "scm_admin", "Suppliers, POs, GRNs, invoices",    "C"},
         };
 
         JPanel grid = new JPanel(new GridLayout(0, 2, 14, 14));
@@ -220,8 +200,6 @@ public class LoginFrame extends JFrame {
         return p;
     }
 
-    // -------------------- auth --------------------
-
     private void attemptLogin() {
         if (!loginButton.isEnabled()) return;
         statusLabel.setText(" ");
@@ -232,31 +210,21 @@ public class LoginFrame extends JFrame {
         if (pw.isEmpty()) { statusLabel.setText("Please enter your password."); return; }
 
         setFormEnabled(false);
-        SwingWorker<UserSessionDTO, Void> worker = new SwingWorker<UserSessionDTO, Void>() {
-            @Override protected UserSessionDTO doInBackground() {
-                Map<String, Object> payload = new HashMap<>();
-                payload.put("username", u);
-                payload.put("password", pw);
-                payload.put("role", selectedRole != null ? selectedRole.role : null);
-                return ui.sendData(AuthEndpoints.AUTH_LOGIN, payload, UserSessionDTO.class);
+        SwingWorker<UIAuthenticator.AuthResult, Void> worker = new SwingWorker<UIAuthenticator.AuthResult, Void>() {
+            @Override protected UIAuthenticator.AuthResult doInBackground() {
+                return authenticator.authenticate(u, pw, selectedRole != null ? selectedRole.role : null);
             }
             @Override protected void done() {
                 try {
-                    UserSessionDTO dto = get();
-                    if (dto != null && dto.isValid()) {
+                    UIAuthenticator.AuthResult result = get();
+                    if (result != null && result.active) {
                         failedAttempts = 0;
-                        UserSession.getInstance().begin(dto.getUserId(), dto.getDisplayName(), dto.getRole());
-                        openMainFrame();
+                        openMainFrame(result);
                     } else {
                         onInvalidCredentials();
                     }
                 } catch (Exception ex) {
-                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                    if (cause instanceof IntegrationException) {
-                        ExceptionHandler.handle(LoginFrame.this, (ERPException) cause, LoginFrame.this::attemptLogin);
-                    } else {
-                        statusLabel.setText("Unexpected error: " + cause.getMessage());
-                    }
+                    statusLabel.setText("Error: " + ex.getMessage());
                 } finally {
                     setFormEnabled(lockoutTimer == null);
                 }
@@ -267,11 +235,10 @@ public class LoginFrame extends JFrame {
 
     private void onInvalidCredentials() {
         failedAttempts++;
-        AuthException e = AuthException.invalidCredentials();
         if (failedAttempts >= MAX_ATTEMPTS) {
             startLockout();
         } else {
-            statusLabel.setText(e.getMessage() + "  (attempt " + failedAttempts + "/" + MAX_ATTEMPTS + ")");
+            statusLabel.setText("Invalid credentials  (attempt " + failedAttempts + "/" + MAX_ATTEMPTS + ")");
         }
         passwordField.setText("");
         passwordField.requestFocus();
@@ -309,20 +276,17 @@ public class LoginFrame extends JFrame {
         for (RoleSelectable c : roleCards) c.setEnabled(on);
     }
 
-    private void openMainFrame() {
-        MainFrame mf = new MainFrame();
+    private void openMainFrame(UIAuthenticator.AuthResult user) {
+        MainFrame mf = new MainFrame(user);
         mf.setVisible(true);
         dispose();
     }
-
-    // -------------------- inner RoleCard wrapper --------------------
 
     private class RoleSelectable extends com.erp.view.components.RoleCard {
         private final String role;
         RoleSelectable(String role, String username, String desc, String icon) {
             super(role, username, desc, icon, null);
             this.role = role;
-            // override handler in-place via MouseListener defined in parent; we reach via child listeners
             for (java.awt.event.MouseListener ml : getMouseListeners()) removeMouseListener(ml);
             addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override public void mouseClicked(java.awt.event.MouseEvent e) { select(); }

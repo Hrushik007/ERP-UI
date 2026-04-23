@@ -1,9 +1,6 @@
 package com.erp.view;
 
-import com.erp.exception.AuthException;
-import com.erp.exception.ExceptionHandler;
-import com.erp.session.RoleAccess;
-import com.erp.session.UserSession;
+import com.erp.service.UIAuthenticator;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
 import com.erp.view.components.Sidebar;
@@ -18,11 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Primary application shell. Tata-branded gradient topbar, role-aware
- * sidebar, card-stacked module area, persistent status bar.
- *
- * SOLID: OCP — panel creation is delegated to {@link PanelRegistry}.
- *              Adding a new module no longer requires editing this class.
+ * Primary application shell. Displays authenticated user info in header.
  */
 public class MainFrame extends JFrame {
 
@@ -32,8 +25,10 @@ public class MainFrame extends JFrame {
     private final Map<String, BasePanel> panelCache = new HashMap<>();
     private JLabel currentModuleLabel;
     private StatusBar statusBar;
+    private UIAuthenticator.AuthResult authenticatedUser;
 
-    public MainFrame() {
+    public MainFrame(UIAuthenticator.AuthResult user) {
+        this.authenticatedUser = user;
         setupFrame();
         initializeComponents();
         setupNavigation();
@@ -51,8 +46,7 @@ public class MainFrame extends JFrame {
     private void initializeComponents() {
         JPanel mainContainer = new JPanel(new BorderLayout());
 
-        UserSession s = UserSession.getInstance();
-        sidebar = new Sidebar(s.isValid() ? s.getRole() : null);
+        sidebar = new Sidebar();
 
         JPanel headerBar = createHeaderBar();
         cardLayout = new CardLayout();
@@ -66,7 +60,7 @@ public class MainFrame extends JFrame {
         mainContainer.add(sidebar, BorderLayout.WEST);
         mainContainer.add(rightPanel, BorderLayout.CENTER);
 
-        statusBar = new StatusBar();
+        statusBar = new StatusBar(authenticatedUser);
         mainContainer.add(statusBar, BorderLayout.SOUTH);
 
         setContentPane(mainContainer);
@@ -105,9 +99,8 @@ public class MainFrame extends JFrame {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, Constants.PADDING_MEDIUM, 6));
         panel.setOpaque(false);
 
-        UserSession session = UserSession.getInstance();
-        String displayName = session.isValid() ? session.getDisplayName() : "User";
-        String role = session.isValid() ? session.getRole() : "";
+        String displayName = authenticatedUser != null ? authenticatedUser.displayName : "User";
+        String role = authenticatedUser != null ? authenticatedUser.role : "";
 
         JLabel nameLabel = new JLabel(displayName);
         nameLabel.setFont(Constants.FONT_REGULAR);
@@ -138,16 +131,10 @@ public class MainFrame extends JFrame {
     private void handleNavigation(ActionEvent e) { showPanel(e.getActionCommand()); }
 
     private void showPanel(String command) {
-        UserSession session = UserSession.getInstance();
-        if (session.isValid() && !RoleAccess.canAccess(command, session.getRole())) {
-            ExceptionHandler.handle(this,
-                    AuthException.unauthorizedModule(command, session.getRole()));
-            return;
-        }
-
         if (!panelCache.containsKey(command)) {
             try {
                 BasePanel panel = PanelRegistry.create(command);
+                panel.ensureInitialized();
                 panelCache.put(command, panel);
                 contentPanel.add(panel, command);
             } catch (Exception e) {
@@ -157,16 +144,19 @@ public class MainFrame extends JFrame {
             }
         }
         BasePanel panel = panelCache.get(command);
+        panel.ensureInitialized();
+        sidebar.selectByCommand(command);
         currentModuleLabel.setText(panel.getPanelTitle());
         panel.refreshData();
         cardLayout.show(contentPanel, command);
+        contentPanel.revalidate();
+        contentPanel.repaint();
         if (statusBar != null) statusBar.refresh();
     }
 
     private void handleLogout() {
         boolean confirm = UIHelper.showConfirm(this, "Are you sure you want to logout?");
         if (confirm) {
-            UserSession.getInstance().end();
             LoginFrame loginFrame = new LoginFrame();
             loginFrame.setVisible(true);
             this.dispose();

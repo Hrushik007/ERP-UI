@@ -1,72 +1,248 @@
 package com.erp.view.panels.manufacturing;
 
-import com.erp.controller.ManufacturingController;
-import com.erp.model.dto.QCCheckDTO;
+import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.time.LocalDate;
+import java.util.List;
 
 /**
- * QC submission form — posts a {@link QCCheckDTO}; if defect rate exceeds
- * the mock's 5% threshold, backend raises {@code QC_DEFECT_THRESHOLD_EXCEEDED}.
+ * QualityControlTab manages final quality checks on completed orders.
  */
-public class QualityControlTab extends JPanel
-        implements ManufacturingHomePanel.Refreshable {
+public class QualityControlTab extends JPanel {
 
-    private final ManufacturingController controller;
+    private JComboBox<ProductionOrder> orderCombo;
+    private JTextField defectsField;
+    
+    private JTable qcTable;
+    private DefaultTableModel tableModel;
+    private JTextArea detailsArea;
 
-    private final JTextField orderId    = new JTextField(12);
-    private final JTextField sampleSize = new JTextField("100", 6);
-    private final JTextField defects    = new JTextField("2", 6);
-    private final JTextField inspector  = new JTextField("INSP-01", 8);
-
-    public QualityControlTab(ManufacturingController controller) {
-        this.controller = controller;
-
+    public QualityControlTab() {
         setLayout(new BorderLayout(0, 10));
-        setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         setBackground(Constants.BG_LIGHT);
+        setBorder(new EmptyBorder(Constants.PADDING_LARGE, Constants.PADDING_LARGE, Constants.PADDING_LARGE, Constants.PADDING_LARGE));
 
-        JPanel form = new JPanel(new GridLayout(0, 2, 8, 8));
-        form.setOpaque(false);
-        form.add(new JLabel("Production Order ID:")); form.add(orderId);
-        form.add(new JLabel("Sample Size:"));         form.add(sampleSize);
-        form.add(new JLabel("Defects Found:"));       form.add(defects);
-        form.add(new JLabel("Inspector ID:"));        form.add(inspector);
-
-        JButton submit = UIHelper.createPrimaryButton("Submit QC Check");
-        submit.addActionListener(e -> submit());
-
-        JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        south.setOpaque(false);
-        south.add(submit);
-
-        add(form, BorderLayout.NORTH);
-        JLabel tip = new JLabel("<html><i>Submitting > 5% defect rate triggers "
-                + "QC_DEFECT_THRESHOLD_EXCEEDED.</i></html>");
-        tip.setForeground(Constants.TEXT_SECONDARY);
-        add(tip, BorderLayout.CENTER);
-        add(south, BorderLayout.SOUTH);
+        add(buildHeader(), BorderLayout.NORTH);
+        add(buildBody(), BorderLayout.CENTER);
+        
+        refreshData();
     }
 
-    private void submit() {
+    private JPanel buildHeader() {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+
+        JPanel titles = new JPanel();
+        titles.setOpaque(false);
+        titles.setLayout(new BoxLayout(titles, BoxLayout.Y_AXIS));
+
+        JLabel titleLabel = new JLabel("Quality Control");
+        titleLabel.setFont(Constants.FONT_SUBTITLE);
+        titleLabel.setForeground(Constants.TEXT_PRIMARY);
+        titleLabel.setAlignmentX(LEFT_ALIGNMENT);
+
+        JLabel subtitleLabel = new JLabel("Log defects on Completed production orders to determine Pass/Fail rate.");
+        subtitleLabel.setFont(Constants.FONT_SMALL);
+        subtitleLabel.setForeground(Constants.TEXT_SECONDARY);
+        subtitleLabel.setAlignmentX(LEFT_ALIGNMENT);
+        
+        titles.add(titleLabel);
+        titles.add(Box.createVerticalStrut(2));
+        titles.add(subtitleLabel);
+
+        header.add(titles, BorderLayout.WEST);
+        return header;
+    }
+
+    private JPanel buildBody() {
+        JPanel body = new JPanel(new BorderLayout(0, 10));
+        body.setOpaque(false);
+
+        // Top Form Panel
+        JPanel formWrapper = new JPanel(new BorderLayout(0, 10));
+        formWrapper.setBackground(Constants.BG_WHITE);
+        formWrapper.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(225, 228, 232), 1, true),
+                new EmptyBorder(14, 14, 14, 14)));
+
+        JPanel form = new JPanel(new GridLayout(2, 2, 10, 15));
+        form.setOpaque(false);
+
+        form.add(UIHelper.createLabel("Select Completed Order (Pending QC):", Constants.FONT_REGULAR, Constants.TEXT_PRIMARY));
+        orderCombo = new JComboBox<>();
+        form.add(orderCombo);
+
+        form.add(UIHelper.createLabel("Defective Pieces Found:", Constants.FONT_REGULAR, Constants.TEXT_PRIMARY));
+        defectsField = new JTextField();
+        form.add(defectsField);
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        buttonPanel.setOpaque(false);
+        JButton logBtn = UIHelper.createPrimaryButton("Log Quality Check");
+        logBtn.addActionListener(e -> logQC());
+        JButton refreshBtn = UIHelper.createSecondaryButton("Refresh");
+        refreshBtn.addActionListener(e -> refreshData());
+        
+        buttonPanel.add(logBtn);
+        buttonPanel.add(refreshBtn);
+
+        formWrapper.add(form, BorderLayout.NORTH);
+        formWrapper.add(buttonPanel, BorderLayout.CENTER);
+
+        body.add(formWrapper, BorderLayout.NORTH);
+
+        // Bottom Table and Details Panel
+        JPanel bottomPanel = new JPanel(new BorderLayout(10, 10));
+        bottomPanel.setOpaque(false);
+
+        // Table
+        String[] cols = {"Order ID", "Product", "Produced", "Defects", "QC Status"};
+        tableModel = new DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
+        qcTable = new JTable(tableModel);
+        qcTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) updateDetailsPane();
+        });
+        
+        JScrollPane tableScroll = new JScrollPane(qcTable);
+        tableScroll.setBorder(BorderFactory.createTitledBorder("QC History"));
+        
+        // Details Pane
+        detailsArea = new JTextArea();
+        detailsArea.setEditable(false);
+        detailsArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+        detailsArea.setBackground(new Color(248, 249, 250));
+        detailsArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        JScrollPane detailsScroll = new JScrollPane(detailsArea);
+        detailsScroll.setBorder(BorderFactory.createTitledBorder("Detailed QC Report"));
+        
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tableScroll, detailsScroll);
+        splitPane.setDividerLocation(450);
+        splitPane.setOpaque(false);
+
+        bottomPanel.add(splitPane, BorderLayout.CENTER);
+        
+        body.add(bottomPanel, BorderLayout.CENTER);
+
+        return body;
+    }
+
+    private void updateDetailsPane() {
+        int row = qcTable.getSelectedRow();
+        if (row < 0) {
+            detailsArea.setText("Select a record to view the detailed report.");
+            return;
+        }
+
+        String orderIdStr = String.valueOf(tableModel.getValueAt(row, 0));
+        String productName = String.valueOf(tableModel.getValueAt(row, 1));
+        String producedStr = String.valueOf(tableModel.getValueAt(row, 2));
+        String defectsStr = String.valueOf(tableModel.getValueAt(row, 3));
+        String result = String.valueOf(tableModel.getValueAt(row, 4));
+
+        int producedQty = 0;
+        int defects = 0;
         try {
-            int sample = Integer.parseInt(sampleSize.getText().trim());
-            int def = Integer.parseInt(defects.getText().trim());
-            QCCheckDTO dto = new QCCheckDTO(
-                    "QC-" + System.currentTimeMillis() % 100000,
-                    orderId.getText().trim(),
-                    LocalDate.now(),
-                    sample, def, def == 0, inspector.getText().trim());
-            controller.submitQCCheck(this, dto, saved ->
-                    UIHelper.showSuccess(this, "QC recorded: " + saved.getQcCheckId()));
-        } catch (NumberFormatException ex) {
-            UIHelper.showError(this, "Sample and defects must be integers.");
+            producedQty = Integer.parseInt(producedStr);
+            defects = Integer.parseInt(defectsStr);
+        } catch (Exception e) {}
+        
+        double rate = producedQty > 0 ? ((double) defects / producedQty) * 100 : 0;
+
+        String report = String.format(
+            "=== Quality Control Report ===\n\n" +
+            "Production Order : #%s\n" +
+            "Product Name     : %s\n" +
+            "Total Produced   : %d units\n" +
+            "Defective Units  : %d units\n" +
+            "-----------------------------------\n" +
+            "Calculated Rate  : %.2f%%\n" +
+            "Pass Threshold   : 5.00%%\n\n" +
+            "FINAL DECISION   : %s",
+            orderIdStr, productName, producedQty, defects, rate, result
+        );
+        
+        detailsArea.setText(report);
+    }
+
+    private void logQC() {
+        ProductionOrder order = (ProductionOrder) orderCombo.getSelectedItem();
+        if (order == null) {
+            JOptionPane.showMessageDialog(this, "Select a pending order.");
+            return;
+        }
+
+        int defects;
+        try {
+            defects = Integer.parseInt(defectsField.getText().trim());
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Valid integer required.");
+            return;
+        }
+
+        try {
+            BOMService.getInstance().logQualityCheck(order.getId(), defects, order.getProducedQuantity());
+            JOptionPane.showMessageDialog(this, "QC Logged Successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            defectsField.setText("");
+            refreshData();
+        } catch (com.erp.exceptions.QcDefectThresholdExceededException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Quality Threshold Exceeded", JOptionPane.WARNING_MESSAGE);
+            defectsField.setText("");
+            refreshData();
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Failed: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    @Override public void refresh() { /* pure form tab */ }
+    private void refreshData() {
+        orderCombo.removeAllItems();
+        tableModel.setRowCount(0);
+        detailsArea.setText("Select a record to view the detailed report.");
+        
+        try {
+            List<ProductionOrder> orders = BOMService.getInstance().getAllProductionOrders();
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
+            
+            java.util.Map<Integer, String> bomNames = new java.util.HashMap<>();
+            if (boms != null) {
+                for (BOM b : boms) {
+                    bomNames.put(b.getId(), b.getProductName());
+                }
+            }
+
+            if (orders != null) {
+                for (ProductionOrder o : orders) {
+                    if ("Completed".equals(o.getOrderStatus())) {
+                        int prodQty = o.getProducedQuantity();
+                        int orderQty = o.getOrderQuantity();
+                        String qc = o.getQcStatus();
+                        if (qc == null) qc = "Pending";
+                        
+                        // Only evaluate if all items were physically produced
+                        if (prodQty < orderQty) continue;
+                        
+                        String name = bomNames.getOrDefault(o.getBomId(), "Unknown");
+                        
+                        // If pending, add to combo box so it can be evaluated exactly once
+                        if ("Pending".equals(qc)) {
+                            orderCombo.addItem(o);
+                        } else {
+                            // If it has a result, add to the history table
+                            tableModel.addRow(new Object[]{ o.getId(), name, prodQty, o.getDefects(), qc });
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+    }
 }
