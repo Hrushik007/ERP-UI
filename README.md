@@ -1,370 +1,197 @@
-# ERP-UI — Tata Motors Enterprise Resource Planning (Swing)
-
-A Java Swing ERP front-end covering 15 modules. **Five modules** are wired end-to-end
-against a mock backend (`MockUIService`): **Orders**, **HR**, **Manufacturing**,
-**Supply Chain**, and **Automation**. The remaining 10 are facade placeholders.
-
-This README is the integration contract between the UI and the backend subsystem teams.
-Each team owns one of the deeply integrated modules and may replace the mock with a
-real transport without touching any UI code.
-
-### Module navigation structure
-
-| Module | Top-level Tabs | Inner Tabs |
-|--------|----------------|-----------|
-| **Order Processing** | Dashboard · Orders · Inventory · Reports | Orders → side nav: New Order / View Orders / Customers / Billing / Delivery / Payments; View Orders → All Orders / Pending / Approved / Rejected / Shipped / Delivered / Cancelled |
-| **HR Management** | Employee Info Management · Recruitment & ATS · Onboarding Management · Payroll Management · Attendance & Leave Management · Performance Management · Workforce Planning & Budgeting · Benefits Administration | Attendance & Leave → Leave / Attendance; Benefits Administration → Benefits / Claims |
-| **Manufacturing** | Dashboard · Assembly Lines · Production Orders · BOM Explorer · Routing · Work Centers · Quality Control · Planning (MPS/CRP) · Shop Floor | — |
-| **Supply Chain** | Dashboard · Inventory · Purchase Orders · Suppliers · Goods Receipts · Shipments · Invoices · Requisitions | — |
-| **Automation** | Dashboard · Expenses · Reports | — |
-
----
-
-## 1. UI architecture overview
-
-```
-ERPApplication (main)
-        │
-        ▼
-   LoginFrame ──► IUIService.sendData(AuthEndpoints.AUTH_LOGIN, ...)
-        │
-        ▼
-   MainFrame ──► PanelRegistry.create(command)    # OCP — no switch in MainFrame
-        │
-        ├── OrdersHomePanel       (4 tabs → OrderController        → IUIService)
-        ├── HRHomePanel           (8 tabs → HRController           → IUIService)
-        ├── ManufacturingHomePanel(9 tabs → ManufacturingController → IUIService)
-        ├── SupplyChainHomePanel  (8 tabs → SupplyChainController   → IUIService)
-        ├── AutomationHomePanel   (3 tabs → OrderController         → IUIService)
-        └── …facade placeholders (10 static modules)
-```
-
-Key rules for UI code:
-
-* **EDT safety** — Swing lives on the EDT. Every controller call is wrapped in
-  a `SwingWorker` (the `submit(owner, work, onOk, retry)` helper). Views stay
-  responsive even on multi-second IO.
-* **`BasePanel` lifecycle** — each module panel extends `BasePanel`, which
-   builds only the common shell in the constructor. Module-specific UI is
-   initialized lazily via `ensureInitialized()` (called by `MainFrame` before
-   a panel is shown) so subclass fields are fully ready before tab/content
-   construction. `refreshData()` is invoked every time the panel is displayed.
-* **Tab `Refreshable` pattern** — each tabbed home panel (`OrdersHomePanel`,
-  `HRHomePanel`, `ManufacturingHomePanel`, `SupplyChainHomePanel`) routes
-  `refreshData()` to the currently-selected tab via a nested `Refreshable`
-  interface.
-* **Controller-per-module** — controllers own the `IUIService` reference,
-  publish results via Observer (`*Listener` interfaces with default methods),
-  and route all exceptions through `ExceptionHandler`.
-* **`ServiceLocator`** — single replaceable seam for the `IUIService` impl.
-
----
-
-## 2. The integration boundary — `IUIService`
-
-`com.erp.integration.IUIService` is a **transport contract only**. It carries
-two generic methods and zero endpoint strings:
-
-```java
-public interface IUIService {
-    <T> T fetchData(String endpoint, Map<String, Object> params, Class<T> resultType)
-            throws IntegrationException;
-
-    <R> R sendData(String endpoint, Object payload, Class<R> resultType)
-            throws IntegrationException;
-}
-```
-
-Endpoint constants live in **per-module namespace interfaces** under
-`com.erp.integration.endpoints.*`:
-
-| Module        | Namespace                     | Constants prefix |
-|---------------|-------------------------------|------------------|
-| Auth          | `AuthEndpoints`               | `auth/…`         |
-| Orders        | `OrdersEndpoints`             | `orders/…`       |
-| HR            | `HREndpoints`                 | `hr/…`           |
-| Manufacturing | `ManufacturingEndpoints`      | `mfg/…`          |
-| Supply Chain  | `SupplyChainEndpoints`        | `scm/…`          |
-
-> **SOLID: ISP.** Adding a new module adds a new namespace interface —
-> existing controllers never see the new constants.
-
----
-
-## 3. Wiring a real backend
-
-1. **Implement `IUIService`** — e.g. `HttpUIService`. In the two generics,
-   dispatch on the endpoint prefix:
-
-   ```java
-   public <T> T fetchData(String endpoint, Map<String, Object> p, Class<T> t) {
-       if (endpoint.startsWith("mfg/"))    return mfgClient.fetch(endpoint, p, t);
-       if (endpoint.startsWith("scm/"))    return scmClient.fetch(endpoint, p, t);
-       if (endpoint.startsWith("hr/"))     return hrClient.fetch(endpoint, p, t);
-       if (endpoint.startsWith("orders/")) return orderClient.fetch(endpoint, p, t);
-       if (endpoint.startsWith("auth/"))   return authClient.fetch(endpoint, p, t);
-       throw IntegrationException.fetchFailed(endpoint, "unrouted");
-   }
-   ```
-
-2. **Adapt wire-format → UI DTOs** via
-   `com.erp.integration.adapter.DTOAdapter` (Structural Adapter). The UI
-   already uses the typed DTOs defined in `com.erp.model.dto.*`; your
-   adapter just has to populate them from the JSON/XML/etc.
-
-3. **Register** your impl before the main frame is shown:
-
-   ```java
-   // com/erp/ERPApplication.java
-   if (Boolean.getBoolean("com.erp.mock")) {
-       ServiceLocator.setUIService(new MockUIService());
-   } else {
-       ServiceLocator.setUIService(new HttpUIService(config));
-   }
-   new LoginFrame().setVisible(true);
-   ```
-
-4. **Keep the mock as the default fallback** so the UI always boots. All
-   live demos in class use the mock; production builds flip the system
-   property.
-
----
-
-## 4. Throwing exceptions that the UI understands
-
-`ExceptionHandler` dispatches on `ERPException.Severity` (INFO / WARNING /
-MAJOR / FATAL). Backend teams throw one of the typed subclasses below;
-no UI change is required to support new codes — that's the OCP contract.
-
-| Code                                 | Class                       | Severity | Factory                                                          |
-|--------------------------------------|-----------------------------|----------|------------------------------------------------------------------|
-| `FETCH_DATA_FAILED`                  | `IntegrationException`      | MAJOR    | `IntegrationException.fetchFailed(module, detail)`               |
-| `SEND_DATA_FAILED`                   | `IntegrationException`      | MAJOR    | `IntegrationException.sendFailed(module, detail)`                |
-| `REQUIRED_FIELD`                     | `ValidationException`       | WARNING  | `ValidationException.requiredField(component, fieldName)`        |
-| `INVALID_QUANTITY`                   | `ValidationException`       | WARNING  | `ValidationException.invalidQuantity(component)`                 |
-| `UNAUTHORIZED_MODULE`                | `AuthException`             | MAJOR    | `AuthException.unauthorizedModule(module, role)`                 |
-| `INVALID_CREDENTIALS`                | `AuthException`             | WARNING  | `AuthException.invalidCredentials()`                             |
-| **Manufacturing**                    |                             |          |                                                                  |
-| `INVALID_BOM_STRUCTURE`              | `BusinessRuleException`     | MAJOR    | `BusinessRuleException.invalidBomStructure(bomId)`               |
-| `COMPONENT_STOCK_INSUFFICIENT`       | `BusinessRuleException`     | MAJOR    | `BusinessRuleException.componentStockInsufficient(partId, need, have)` |
-| `ROUTING_STEP_GAP`                   | `BusinessRuleException`     | WARNING  | `BusinessRuleException.routingStepGap(productId, missingSeq)`    |
-| `QC_DEFECT_THRESHOLD_EXCEEDED`       | `BusinessRuleException`     | MAJOR    | `BusinessRuleException.qcDefectThresholdExceeded(orderId, rate)` |
-| `PRODUCTION_ORDER_CANCELLATION_BLOCKED` | `BusinessRuleException`  | WARNING  | `BusinessRuleException.productionOrderCancellationBlocked(id)`   |
-| `CAPACITY_OVERLOAD`                  | `BusinessRuleException`     | WARNING  | `BusinessRuleException.capacityOverload(wcId)`                   |
-| `DUPLICATE_BOM_VERSION`              | `BusinessRuleException`     | WARNING  | `BusinessRuleException.duplicateBomVersion(productId, version)`  |
-| **Supply Chain**                     |                             |          |                                                                  |
-| `SUPPLIER_NOT_FOUND`                 | `BusinessRuleException`     | MAJOR    | `BusinessRuleException.supplierNotFound(supplierId)`             |
-| `GOODS_RECEIPT_MISMATCH`             | `BusinessRuleException`     | MAJOR    | `BusinessRuleException.goodsReceiptMismatch(poId, expected, actual)` |
-| `INVOICE_MISMATCH`                   | `BusinessRuleException`     | MAJOR    | `BusinessRuleException.invoiceMismatch(invoiceId)`               |
-| `DUPLICATE_PO`                       | `BusinessRuleException`     | WARNING  | `BusinessRuleException.duplicatePurchaseOrder(poId)`             |
-| `STOCK_BELOW_THRESHOLD`              | `BusinessRuleException`     | WARNING  | `BusinessRuleException.stockBelowThreshold(partId)`              |
-| `SHIPMENT_DELAYED`                   | `BusinessRuleException`     | WARNING  | `BusinessRuleException.shipmentDelayed(shipmentId)`              |
-| `PAYMENT_PROCESSING_FAILED`          | `BusinessRuleException`     | MAJOR    | `BusinessRuleException.paymentProcessingFailed(invoiceId)`       |
-| `FOUR_EYES_RULE_VIOLATION`           | `BusinessRuleException`     | MAJOR    | `BusinessRuleException.fourEyesRuleViolation(poId)`              |
-
-`IntegrationException` gets a **retry dialog**; other severities get an
-error/warning dialog only. Backend transport failures should always be
-`IntegrationException`.
-
----
-
-## 5. Per-team endpoints
-
-### 5.1 Team HR — `HREndpoints` (`hr/…`)
-
-| Constant                       | Verb  | Params                                     | Returns                         |
-|--------------------------------|-------|--------------------------------------------|---------------------------------|
-| `HR_EMPLOYEES`                 | fetch | `department`, `status`, `q` (all optional) | `List<EmployeeDTO>`             |
-| `HR_RECRUITMENT`               | fetch | –                                          | `List<EmployeeDTO>`             |
-| `HR_ONBOARDING`                | fetch | –                                          | `List<EmployeeDTO>`             |
-| `HR_PAYROLL`                   | fetch | –                                          | `List<EmployeeDTO>`             |
-| `HR_PERFORMANCE`               | fetch | –                                          | `List<EmployeeDTO>`             |
-| `HR_ATTENDANCE`                | fetch | –                                          | `List<String[]>`                |
-| `HR_LEAVE`                     | fetch | –                                          | `List<String[]>`                |
-| `HR_STATS`                     | fetch | –                                          | `Map<String, Integer>`          |
-| `HR_EMPLOYEE_UPDATE`           | send  | `EmployeeDTO`                              | `EmployeeDTO`                   |
-| `HR_ONBOARDING_UPDATE`         | send  | `EmployeeDTO`                              | `EmployeeDTO`                   |
-| `HR_RECRUITMENT_STAGE`         | send  | `{employeeId, stage, score}`               | `EmployeeDTO`                   |
-| `HR_PAYROLL_TRANSFER`          | send  | `employeeId` (String)                      | `String` (txn ref)              |
-| `HR_ATTENDANCE_LOG`            | send  | `{employeeId, checkIn, checkOut, overtime}`| `String` (ack)                  |
-| `HR_LEAVE_ACTION`              | send  | `{id, action}`                             | `String` (ack)                  |
-
-### 5.2 Team Orders — `OrdersEndpoints` (`orders/…`)
-
-| Constant                          | Verb  | Params                                     | Returns                         |
-|-----------------------------------|-------|--------------------------------------------|---------------------------------|
-| `ORDERS_LIST`                     | fetch | `status`, `q` (optional)                   | `List<OrderDTO>`                |
-| `ORDERS_PRODUCT_CATALOG`          | fetch | –                                          | `List<PartDTO>`                 |
-| `ORDERS_STATS`                    | fetch | –                                          | `Map<String, Integer>`          |
-| `ORDERS_EXPENSE_LIST`             | fetch | –                                          | `List<Map<String, Object>>`     |
-| `ORDERS_REPORT_SUMMARY`           | fetch | –                                          | `Map<String, Object>`           |
-| `ORDERS_CUSTOMER_INVOICE_LIST`    | fetch | –                                          | `List<Map<String, Object>>`     |
-| `ORDERS_CREATE`                   | send  | `OrderDTO`                                 | `OrderDTO`                      |
-| `ORDERS_APPROVE`                  | send  | `orderId` (String)                         | `OrderDTO`                      |
-| `ORDERS_REJECT`                   | send  | `orderId`                                  | `OrderDTO`                      |
-| `ORDERS_REVISION`                 | send  | `orderId`                                  | `OrderDTO`                      |
-| `ORDERS_REVISION_UPDATE`          | send  | `OrderDTO`                                 | `OrderDTO`                      |
-| `ORDERS_SHIP`                     | send  | `{orderId, courier, tracking}`             | `OrderDTO`                      |
-| `ORDERS_PAY`                      | send  | `{orderId, amount, simulateFail}`          | `OrderDTO`                      |
-| `ORDERS_CANCEL`                   | send  | `{orderId, reason}`                        | `OrderDTO`                      |
-| `ORDERS_EXPENSE_CREATE`           | send  | `Map<String, Object>`                      | `Map<String, Object>`           |
-| `ORDERS_CUSTOMER_INVOICE_GENERATE`| send | `{orderId}`                                | `Map<String, Object>`           |
-
-### 5.3 Team Manufacturing — `ManufacturingEndpoints` (`mfg/…`)
-
-| Constant                          | Verb  | Params                           | Returns                      |
-|-----------------------------------|-------|----------------------------------|------------------------------|
-| `MFG_CARS_LIST`                   | fetch | –                                | `List<CarModelDTO>`          |
-| `MFG_PRODUCTION_ORDERS`           | fetch | –                                | `List<ProductionOrderDTO>`   |
-| `MFG_BOM_LIST`                    | fetch | –                                | `List<BomDTO>`               |
-| `MFG_BOM_DETAILS`                 | fetch | `bomId`                          | `BomDTO`                     |
-| `MFG_ROUTING`                     | fetch | `productId` (optional)           | `List<RoutingStepDTO>`       |
-| `MFG_WORK_CENTERS`                | fetch | –                                | `List<WorkCenterDTO>`        |
-| `MFG_STATS`                       | fetch | –                                | `Map<String, Integer>`       |
-| `MFG_CAR_STATUS_UPDATE`           | send  | `{vin, status}`                  | `CarModelDTO`                |
-| `MFG_PRODUCTION_ORDER_CREATE`     | send  | `ProductionOrderDTO`             | `ProductionOrderDTO`         |
-| `MFG_PRODUCTION_ORDER_CANCEL`     | send  | `orderId`                        | `ProductionOrderDTO`         |
-| `MFG_EXECUTION_LOG`               | send  | `{orderId, note}`                | `String` (ack)               |
-| `MFG_QC_SUBMIT`                   | send  | `QCCheckDTO`                     | `QCCheckDTO`                 |
-
-### 5.4 Team Supply Chain (SwiftChain) — `SupplyChainEndpoints` (`scm/…`)
-
-| Constant                | Verb  | Params                               | Returns                   |
-|-------------------------|-------|--------------------------------------|---------------------------|
-| `SCM_SUPPLIERS`         | fetch | –                                    | `List<SupplierDTO>`       |
-| `SCM_PO_LIST`           | fetch | `status` (optional)                  | `List<PurchaseOrderDTO>`  |
-| `SCM_INVENTORY`         | fetch | –                                    | `List<PartDTO>`           |
-| `SCM_LOW_STOCK`         | fetch | –                                    | `List<PartDTO>`           |
-| `SCM_STATS`             | fetch | –                                    | `Map<String, Integer>`    |
-| `SCM_PO_CREATE`         | send  | `PurchaseOrderDTO`                   | `PurchaseOrderDTO`        |
-| `SCM_PO_APPROVE`        | send  | `{poId, approverUserId}`             | `PurchaseOrderDTO`        |
-| `SCM_REORDER`           | send  | `{partId, quantity}`                 | `PartDTO`                 |
-| `SCM_GRN_CREATE`        | send  | `GoodsReceiptDTO`                    | `GoodsReceiptDTO`         |
-| `SCM_SHIPMENT_UPDATE`   | send  | `{shipmentId, status}`               | `ShipmentDTO`             |
-| `SCM_INVOICE_CREATE`    | send  | `InvoiceDTO`                         | `InvoiceDTO`              |
-| `SCM_INVOICE_VERIFY`    | send  | `{invoiceId, expectedAmount}`        | `InvoiceDTO`              |
-| `SCM_INVOICE_PAY`       | send  | `invoiceId`                          | `InvoiceDTO`              |
-
-Business rules the Supply Chain backend must enforce:
-* **Four-eyes rule** — `createdBy != approverUserId` on `SCM_PO_APPROVE` (else `FOUR_EYES_RULE_VIOLATION`).
-* `SCM_GRN_CREATE` — if `receivedQty != expectedQty`, throw `GOODS_RECEIPT_MISMATCH`.
-* `SCM_INVOICE_VERIFY` — if `invoiceAmount != expectedAmount`, throw `INVOICE_MISMATCH`.
-* `SCM_INVOICE_PAY` — only allowed when status is `AUTHORIZED`; else `PAYMENT_PROCESSING_FAILED`.
-* `SCM_PO_CREATE` — supplier must exist and be approved, else `SUPPLIER_NOT_FOUND`.
-
-Business rules the Manufacturing backend must enforce:
-* `MFG_ROUTING` — missing sequence numbers (e.g. 1,2,4) → `ROUTING_STEP_GAP` (warning).
-* `MFG_PRODUCTION_ORDER_CANCEL` — if any work order is `IN_PROGRESS`, throw `PRODUCTION_ORDER_CANCELLATION_BLOCKED`.
-* `MFG_QC_SUBMIT` — `defectsCount / sampleSize > 0.05` → `QC_DEFECT_THRESHOLD_EXCEEDED`.
-* `MFG_PRODUCTION_ORDER_CREATE` — component stock must cover planned qty × BOM; else `COMPONENT_STOCK_INSUFFICIENT`.
-
----
-
-## 6. Compile & run
-
-Requirements: **JDK 11+**.
-
-```bash
-./run.sh                      # compiles src/ → out/ and launches ERPApplication
-# or
-java -Dcom.erp.mock=false -cp out com.erp.ERPApplication    # real-backend mode (after wiring)
-```
-
-Demo credentials (defined in `MockUIService`):
-
-| Role      | Username   | Password   |
-|-----------|------------|------------|
-| Admin     | `admin`    | `admin123` |
-| Manager   | `manager`  | `manager123` |
-| Employee  | `emp001`   | `emp123`   |
-| HR        | `hr_admin` | `hr123`    |
-| Sales     | `sales01`  | `sales123` |
-| Manufacturing | `mfg_admin` | `mfg123` |
-| Supply Chain  | `scm_admin` | `scm123` |
-
----
-
-## 7. Design patterns & principles cheat sheet
-
-| Where                                              | Tag                                                    |
-|----------------------------------------------------|--------------------------------------------------------|
-| `IUIService`, `*Endpoints` interfaces              | SOLID: ISP                                             |
-| `PanelRegistry`, `MainFrame`                       | SOLID: OCP · Factory Method + Registry (Creational)    |
-| `BusinessRuleException`                            | SOLID: OCP (extends without modifying ExceptionHandler) |
-| `OrderController`, `HRController`, `ManufacturingController`, `SupplyChainController` | GRASP: Controller · GRASP: Pure Fabrication · Observer (Behavioral) |
-| `MockUIService`                                    | GRASP: Information Expert                              |
-| `DTOAdapter`                                       | Adapter (Structural)                                   |
-| `OrdersHomePanel`, `HRHomePanel`, `ManufacturingHomePanel`, `SupplyChainHomePanel` | Composite (Structural) — tabbed Swing tree |
-| `BasePanel`                                        | Template Method (Behavioral)                           |
-| `ServiceLocator`                                   | Service Locator (GoF-adjacent) — single replaceable seam |
-| `*DTO` classes                                     | DTO (data-carrier)                                     |
-| `SwingWorker submit()` helper in each controller   | Asynchronous Producer-Consumer (keeps EDT responsive)  |
-
----
-
-## 8. Implementation guide for future subsystem integrations
-
-Use this runbook when integrating a new subsystem (example: `quality`,
-`fleet`, `procurement-analytics`) without breaking existing modules.
-
-### 8.1 Define the subsystem contract first
-
-1. Create endpoint namespace interface:
-   * `src/com/erp/integration/endpoints/<Subsystem>Endpoints.java`
-   * Keep constants as `<prefix>/<action>` (for routing by prefix).
-2. Add DTOs under `src/com/erp/model/dto/`.
-3. Add business exceptions as factory methods in
-   `src/com/erp/exception/BusinessRuleException.java`.
-
-### 8.2 Build integration in vertical slices
-
-1. Add controller:
-   * `src/com/erp/controller/<Subsystem>Controller.java`
-   * Implement listener interface with default methods.
-   * Route all calls through `submit(...)` to preserve EDT responsiveness.
-2. Add tabs and home panel:
-   * `src/com/erp/view/panels/<subsystem>/...`
-   * Make each tab implement `<Subsystem>HomePanel.Refreshable`.
-   * Share one controller instance across all tabs in the home panel.
-3. Register module in panel registry:
-   * update `src/com/erp/view/PanelRegistry.java`.
-4. Expose module in sidebar and RBAC:
-   * update `src/com/erp/view/components/Sidebar.java`.
-   * update `src/com/erp/session/RoleAccess.java`.
-
-### 8.3 Backend transport integration
-
-1. Extend your `IUIService` implementation to route the new endpoint prefix.
-2. Add mock handlers in `src/com/erp/integration/MockUIService.java` for:
-   * list/stats fetches,
-   * create/update actions,
-   * failure scenarios (`IntegrationException`, `BusinessRuleException`).
-3. If needed, add adapter mappings in
-   `src/com/erp/integration/adapter/DTOAdapter.java`.
-
-### 8.4 UI lifecycle and navigation safety rules
-
-1. Never build tab content from `BasePanel` constructor assumptions.
-2. Keep module construction safe with `BasePanel.ensureInitialized()`.
-3. In navigation, always follow order:
-   * create panel,
-   * `ensureInitialized()`,
-   * add to card layout,
-   * `refreshData()`,
-   * show card.
-4. Sidebar menu items must dispatch click events from both row container and
-   inner label/component to avoid "dead click" behavior.
-
-### 8.5 Completion checklist (must pass before merge)
-
-1. Compile check:
-   * `javac -d out -sourcepath src src/com/erp/ERPApplication.java`
-2. Runtime smoke check (`./run.sh`):
-   * login,
-   * switch repeatedly between Dashboard/Orders/HR/Manufacturing/Supply Chain,
-   * verify card content changes every click,
-   * verify each integrated module loads at least one dataset.
-3. Failure-path check:
-   * trigger one mocked integration failure and confirm retry dialog appears.
-4. RBAC check:
-   * verify at least two roles with/without access to the new module.
+# ERP-UI - Tata Motors Enterprise Resource Planning (Swing)
+
+This repository contains a Java Swing ERP UI with 15 navigable modules, implemented using a layered OOAD style (UI -> service -> subsystem SDK).
+
+This README has been updated based on the current code in src/com/erp.
+
+## 1. Integration Status
+
+### 1.1 Module status at a glance
+
+- Fully implemented integration logic: Manufacturing
+- Authentication implemented with mock adapter: Login + MockUIAuthenticator
+- UI shell fully implemented: LoginFrame, MainFrame, Sidebar, PanelRegistry, BasePanel
+- Placeholder/facade UI modules: most Orders, HR, Supply Chain tabs, plus facade modules (CRM, Finance, Sales, etc.)
+
+### 1.2 Modules and tab structure
+
+| Module | Top-level implementation status | Tabs |
+|---|---|---|
+| Dashboard | UI implemented | Executive Dashboard |
+| Order Processing | Mostly placeholder tabs | Dashboard, Orders, Inventory, Reports |
+| HR Management | Placeholder tabs | Employee Info, Recruitment, Onboarding, Payroll, Attendance & Leave, Performance, Workforce Planning, Benefits |
+| Manufacturing | Deep integration with BOMService + SDK + API server/client | Assembly Lines, Production Orders, BOM Explorer, Routing, Work Centers, Quality Control, Planning, Shop Floor |
+| Supply Chain | Placeholder tabs (UI stubs) | Dashboard, Inventory, Purchase Orders, Suppliers, Goods Receipts, Shipments, Invoices, Requisitions |
+| Automation | Placeholder tabs via stubs | Dashboard, Workflows, Rules Engine |
+| CRM/Sales/Finance/Accounting/Project/Reporting/Analytics/BI/Marketing | Facade placeholder panels | Stub tabs |
+
+## 2. Actual Architecture (from source)
+
+### 2.1 Runtime flow
+
+1. ERPApplication.main initializes look-and-feel and launches LoginFrame on EDT.
+2. LoginFrame authenticates via UIAuthenticator (currently MockUIAuthenticator).
+3. MainFrame receives authenticated user and renders shell (header + sidebar + content cards).
+4. Sidebar command is routed to PanelRegistry.create(command).
+5. Created panel (BasePanel subclass) is cached, initialized lazily via ensureInitialized(), then refreshed.
+
+Primary classes:
+- src/com/erp/ERPApplication.java
+- src/com/erp/view/LoginFrame.java
+- src/com/erp/view/MainFrame.java
+- src/com/erp/view/PanelRegistry.java
+- src/com/erp/view/panels/BasePanel.java
+
+### 2.2 Manufacturing subsystem integration (UI team + Manufacturing team)
+
+Manufacturing is the strongest real integration in this codebase.
+
+Key integration points:
+- BOMService loads subsystem SDK using SubsystemFactory + DatabaseConfig from src/main/resources/application-rds.properties.
+- BOMService maps raw Map<String,Object> data into domain models (BOM, Material, RoutingStep, ProductionOrder, etc.).
+- ManufacturingHomePanel hosts the module tabs and starts InventoryApiServer.
+- InventoryApiServer exposes /api/inventory/materials (GET/POST/PUT) for subsystem communication.
+- InventoryApiClient pushes new materials to external Supply Chain endpoint.
+
+Key files:
+- src/com/erp/service/BOMService.java
+- src/com/erp/service/InventoryApiServer.java
+- src/com/erp/service/InventoryApiClient.java
+- src/com/erp/view/panels/manufacturing/ManufacturingHomePanel.java
+- src/com/erp/view/panels/manufacturing/BOMExplorerTab.java
+- src/com/erp/view/panels/manufacturing/ManufacturingPlanningTab.java
+- src/com/erp/view/panels/manufacturing/ShopFloorExecutionTab.java
+- src/com/erp/view/panels/manufacturing/QualityControlTab.java
+
+### 2.3 Exception model currently present
+
+Manufacturing-specific checked exceptions are defined as direct Exception subclasses:
+- CapacityOverloadException
+- DuplicateBomVersionException
+- InvalidBomStructureException
+- InvalidQuantityInputException
+- ProductionOrderCancellationBlockedException
+- QcDefectThresholdExceededException
+- RoutingStepSequenceGapException
+
+Path:
+- src/com/erp/exceptions/
+
+## 3. SOLID Principles Used
+
+The table below lists SOLID principles that are visible in the current implementation and where they are applied.
+
+| Principle | How it is used in this codebase | Where |
+|---|---|---|
+| Single Responsibility Principle (SRP) | UI shell, navigation, utility styling, auth contract, and manufacturing data orchestration are separated into focused classes. | MainFrame, Sidebar, UIHelper, UIAuthenticator, BOMService |
+| Open/Closed Principle (OCP) | New module panels can be added by registering a new factory in PanelRegistry without changing MainFrame navigation logic. | src/com/erp/view/PanelRegistry.java, src/com/erp/view/MainFrame.java |
+| Liskov Substitution Principle (LSP) | All module panels are substitutable BasePanel implementations; MainFrame treats them uniformly through BasePanel API (ensureInitialized, refreshData, getPanelTitle). | src/com/erp/view/panels/BasePanel.java and all subclasses |
+| Interface Segregation Principle (ISP) | Interfaces are split by concern: UIAuthenticator for login, and separate HRService/CRMService/SalesService/FinanceService contracts instead of one monolithic interface. | src/com/erp/service/UIAuthenticator.java, HRService.java, CRMService.java, SalesService.java, FinanceService.java |
+| Dependency Inversion Principle (DIP) | High-level UI depends on abstractions and facade services. Login uses UIAuthenticator interface. BOMService depends on subsystem abstraction via SDK factory instead of embedding SQL in UI tabs. | src/com/erp/view/LoginFrame.java, src/com/erp/service/UIAuthenticator.java, src/com/erp/service/BOMService.java |
+
+## 4. GRASP Principles Used
+
+| GRASP Principle | How it is used | Where |
+|---|---|---|
+| Information Expert | BOMService owns manufacturing read/write operations and mapping because it has the required subsystem and schema knowledge. | src/com/erp/service/BOMService.java |
+| Creator | UIHelper creates styled Swing controls; PanelRegistry creates module panels; both are natural creators for those objects. | src/com/erp/util/UIHelper.java, src/com/erp/view/PanelRegistry.java |
+| Controller | BOMService handles manufacturing-related system operations requested by UI tabs (plans, orders, routing, QC, shop-floor logs). | src/com/erp/service/BOMService.java |
+| Low Coupling | UI tabs call service APIs instead of direct DB operations; MainFrame delegates object creation to PanelRegistry; auth is behind UIAuthenticator. | manufacturing tabs, MainFrame, PanelRegistry, LoginFrame |
+| High Cohesion | Each panel/tab class has a focused responsibility (for example BOMExplorerTab for BOM visualization, ShopFloorExecutionTab for execution logging). | src/com/erp/view/panels/manufacturing/*.java |
+| Polymorphism | BasePanel defines abstract lifecycle methods and behavior is specialized via subclass overrides. | src/com/erp/view/panels/BasePanel.java and module panel subclasses |
+| Pure Fabrication | Utility and registry classes are introduced to keep domain/UI classes cleaner and more cohesive. | src/com/erp/util/UIHelper.java, src/com/erp/view/PanelRegistry.java, src/com/erp/util/JSONUtil.java |
+| Indirection | PanelRegistry mediates command-to-panel creation, reducing direct dependency between MainFrame and concrete modules. | src/com/erp/view/PanelRegistry.java |
+| Protected Variations | Interface boundaries protect change points: UIAuthenticator implementation can be replaced, service interfaces can be implemented per team, panel registration can vary without rewriting shell logic. | src/com/erp/service/UIAuthenticator.java, src/com/erp/service/*Service.java, src/com/erp/view/PanelRegistry.java |
+
+## 5. Design Patterns Used (OOAD-Oriented)
+
+| Pattern | Type | How/where it is used |
+|---|---|---|
+| MVC (architectural style) | Architectural | Models in src/com/erp/model, views in src/com/erp/view/panels, and service/controller-style coordination in src/com/erp/service (especially BOMService). |
+| Template Method | Behavioral | BasePanel defines panel lifecycle skeleton (header + content shell + deferred initialize/layout) and subclasses fill details. |
+| Factory Method | Creational | UIHelper factory methods create consistently styled controls (createPrimaryButton, createSecondaryButton, etc.). |
+| Registry + Factory | Creational/Structural | PanelRegistry stores command-to-factory mapping and instantiates panels on demand. |
+| Singleton | Creational | BOMService and InventoryApiServer use singleton accessors (getInstance) for shared lifecycle/state. |
+| Facade | Structural | BOMService provides a simplified API over subsystem SDK operations and mapping complexity. |
+| Adapter | Structural | InventoryApiServer.MaterialsHandler adapts HTTP payloads to BOMService methods; BOMService maps generic maps to typed model objects. |
+| Composite | Structural | JTabbedPane-based module composition and recursive BOMNode tree representation in JSONUtil/BOMExplorerTab. |
+| Observer (event/listener) | Behavioral | Swing listeners (ActionListener, ChangeListener, ListSelectionListener, DocumentListener) drive UI updates and command handling. |
+| Strategy | Behavioral | TableRowSorter with dynamic RowFilter in ShopFloorExecutionTab enables runtime filtering strategy. |
+| DTO/Data Model | Enterprise/Structural | Plain model classes (BOM, Material, ProductionOrder, etc.) transfer data between service layer and UI. |
+| Proxy-style integration client | Structural | InventoryApiClient wraps remote HTTP call details for Supply Chain synchronization. |
+
+## 6. Manufacturing Integration Workflow
+
+Current workflow implemented by UI + service code:
+
+1. Material management:
+- Create materials via AddMaterialDialog -> BOMService.addMaterial
+- Push material update to Supply Chain via InventoryApiClient
+
+2. BOM management:
+- Create/update BOM in BOMExplorerTab/NewBOMDialog
+- JSONUtil serializes/deserializes hierarchical BOM content
+
+3. Planning and orders:
+- Create production plans and convert to orders through ManufacturingPlanningTab + BOMService
+
+4. Assembly routing and execution:
+- Manage line assignments and movements in AssemblyLinesTab
+- Log output quantities in ShopFloorExecutionTab
+
+5. Quality control:
+- Submit QC in QualityControlTab
+- Defect threshold rule enforced in BOMService.logQualityCheck
+
+6. Cross-subsystem API bridge:
+- InventoryApiServer exposes material endpoints for inbound synchronization
+
+## 7. Source Layout
+
+Core package layout:
+
+- src/com/erp/ERPApplication.java
+- src/com/erp/view/
+- src/com/erp/view/components/
+- src/com/erp/view/panels/
+- src/com/erp/view/panels/manufacturing/
+- src/com/erp/view/panels/orders/
+- src/com/erp/view/panels/hr/
+- src/com/erp/view/panels/supplychain/
+- src/com/erp/view/panels/facade/
+- src/com/erp/service/
+- src/com/erp/model/
+- src/com/erp/util/
+- src/com/erp/exceptions/
+
+## 8. Build and Run
+
+Requirements:
+- JDK 11+
+- ERP subsystem SDK JAR(s) in lib/
+
+Options:
+
+Windows batch build/run:
+- run.bat
+
+Python cross-platform build/run script:
+- run.py
+
+Manual compile/run example (Windows classpath style):
+
+javac -cp .;lib/* -d out @sources.txt
+java -cp out;lib/* com.erp.ERPApplication
+
+## 9. Integration Notes for Subsystem Teams
+
+- Auth is abstracted through UIAuthenticator; replace MockUIAuthenticator with real DB-backed implementation when ready.
+- Manufacturing integration already consumes subsystem SDK and DB config through BOMService.
+- Orders, HR, and Supply Chain UI currently contain many stub tabs that are ready for backend wiring.
+- PanelRegistry is the extension seam for adding or replacing module panels.
+
+## 10. Current Scope Clarification
+
+This README reflects the code currently present in this repository. It intentionally does not claim classes/contracts that are not in src/com/erp.
+
+If additional integration components exist only in external JARs under lib/, they should be documented in a separate SDK contract document and linked here.
