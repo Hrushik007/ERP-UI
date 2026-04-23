@@ -2,7 +2,11 @@
 
 This repository contains a Java Swing ERP UI with 15 navigable modules, implemented using a layered OOAD style (UI -> service -> subsystem SDK).
 
-This README has been updated based on the current code in src/com/erp.
+Team UI - AIML 'B' Section 
+Hrushik M Hegde (PES1UG23AM118)
+Harshavardhan M (PES1UG23AM112)
+Havyshmathy V   (PES1UG23AM116)
+Arpita R        (PES1UG23AM067)
 
 ## 1. Integration Status
 
